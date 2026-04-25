@@ -1,5 +1,7 @@
 name: Livedoor FANZA Auto Post
-
+permissions:
+  contents: write
+  
 on:
   schedule:
     # 毎時0分に実行し、時間ごとに異なるカテゴリを自動投稿する
