@@ -60,5 +60,5 @@ jobs:
           git config --local user.name "GitHub Action"
           git add beauty_index_fanza.db last_actresses.json
           git commit -m "Update FANZA ranking database and actress list" || echo "No changes to commit"
-          git pull --rebase origin main
+          git pull --rebase origin master
           git push
