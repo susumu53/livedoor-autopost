@@ -1,0 +1,64 @@
+name: Livedoor FANZA Auto Post
+
+on:
+  schedule:
+    # 毎時0分に実行し、時間ごとに異なるカテゴリを自動投稿する
+    - cron: '0 * * * *'
+  workflow_dispatch:
+    inputs:
+      keyword:
+        description: '検索キーワード（手動で特定のカテゴリをすぐ投稿したい場合）'
+        required: false
+        default: ''
+
+jobs:
+  post-ranking:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-glx libglib2.0-0
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          
+      - name: Run Auto Post Script
+        env:
+          DMM_API_ID: ${{ secrets.DMM_API_ID }}
+          DMM_AFFILIATE_ID: ${{ secrets.DMM_AFFILIATE_ID }}
+          LIVEDOOR_ID: ${{ secrets.LIVEDOOR_ID }}
+          LIVEDOOR_BLOG_ID: ${{ secrets.LIVEDOOR_BLOG_ID }}
+          LIVEDOOR_API_KEY: ${{ secrets.LIVEDOOR_API_KEY }}
+          AMAZON_ACCESS_KEY: ${{ secrets.AMAZON_ACCESS_KEY }}
+          AMAZON_SECRET_KEY: ${{ secrets.AMAZON_SECRET_KEY }}
+          AMAZON_PARTNER_TAG: ${{ secrets.AMAZON_PARTNER_TAG }}
+          WP_URL: ${{ secrets.WP_URL }}
+          WP_USERNAME: ${{ secrets.WP_USERNAME }}
+          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+        run: |
+          if [ -n "${{ github.event.inputs.keyword }}" ]; then
+            # 手動実行でキーワードがある場合
+            python main.py --hits 10 --keyword "${{ github.event.inputs.keyword }}"
+          else
+            # 定期実行
+            python main.py --hits 10
+          fi
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add beauty_index_fanza.db last_actresses.json
+          git commit -m "Update FANZA ranking database and actress list" || echo "No changes to commit"
+          git pull --rebase origin main
+          git push
