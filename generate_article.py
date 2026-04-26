@@ -280,32 +280,44 @@ class BeautyManager:
         }
         self.engine.generate_single_radar_chart(scores_for_chart, output_path=chart_path)
 
-        # 複数画像のアップロード
-        print("\nUploading media to WordPress...")
+        # 複数画像のアップロード (WordPress用)
         media_urls = []
         temp_files = []
-        for idx, cand in enumerate(res_data['selected_candidates']):
-            tmp_name = f"temp_face_{idx}.png"
-            cv2.imwrite(tmp_name, cand['img_data'])
-            temp_files.append(tmp_name)
-            
-            m = self.uploader.upload_media(tmp_name, f"portrait_{idx}.png")
-            if m:
-                media_urls.append(m['source_url'])
-            else:
-                media_urls.append("")
-
-        m_chart = self.uploader.upload_media(chart_path, "beauty_chart.png")
-
-        # 記事投稿
-        display_name = res_data['name']
-        title = f"【美人指数 解析】進化心理学が暴く {display_name} の客観的美しさ"
-        content = self.generate_html_content(
-            res_data, media_urls, 
-            m_chart['source_url'] if m_chart else ""
-        )
+        m_chart = None
         
-        post = self.uploader.post_article(title, content, featured_media_id=m_chart['id'] if m_chart else None, categories=[27])
+        if update_wp:
+            print("\nUploading media to WordPress...")
+            for idx, cand in enumerate(res_data['selected_candidates']):
+                tmp_name = f"temp_face_{idx}.png"
+                cv2.imwrite(tmp_name, cand['img_data'])
+                temp_files.append(tmp_name)
+                
+                m = self.uploader.upload_media(tmp_name, f"portrait_{idx}.png")
+                if m:
+                    media_urls.append(m['source_url'])
+                else:
+                    media_urls.append("")
+
+            m_chart = self.uploader.upload_media(chart_path, "beauty_chart.png")
+        else:
+            # Livedoor用などの一時ファイル作成（必要な場合）
+            # 今回は分析結果の保存が目的なので、WP投稿しない場合は画像アップロード不要
+            pass
+
+
+        post = None
+        if update_wp:
+            # 記事投稿
+            display_name = res_data['name']
+            title = f"【美人指数 解析】進化心理学が暴く {display_name} の客観的美しさ"
+            content = self.generate_html_content(
+                res_data, media_urls, 
+                m_chart['source_url'] if m_chart else ""
+            )
+            post = self.uploader.post_article(title, content, featured_media_id=m_chart['id'] if m_chart else None, categories=[27])
+        else:
+            print("Skipping WordPress article post as update_wp is False.")
+
         
         # クリーンアップ
         for p in temp_files + [chart_path]:

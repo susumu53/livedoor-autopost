@@ -3,6 +3,7 @@ import argparse
 import os
 import math
 import json
+import traceback
 import sys
 from dmm_client import DMMClient
 try:
@@ -349,16 +350,16 @@ def main():
                         manager = BeautyManager(db_path=db_path_fanza)
                         analyzed_count = 0
                         for name in names:
-                            # 既に10人分確保できているか、分析上限（例: 3人）に達したら終了
-                            if analyzed_count >= 3: break 
+                            # 分析上限を少し増やす (3 -> 6)
+                            if analyzed_count >= 6: break 
                             
                             res = db.get_score_by_name(name, category="AV")
                             if not res:
                                 print(f"新着女優 {name} をAI分析中...")
                                 try:
-                                    # 分析を実行（WP投稿とDB保存が行われる）
-                                    # Livedoor用なので strict_fanza=True を指定
-                                    manager.run_objective_analysis(name=name, category="AV", strict_fanza=True, update_wp=False)
+                                    # 分析を実行
+                                    # strict_fanza=False にして検索ヒット率を上げる
+                                    manager.run_objective_analysis(name=name, category="AV", strict_fanza=False, update_wp=False)
                                     analyzed_count += 1
                                 except Exception as e:
                                     print(f"分析エラー ({name}): {e}")
@@ -382,14 +383,25 @@ def main():
                     # 多様性を出すために、最近投稿された女優を避けるロジック（オプション）
                     # 今回はシンプルにスコア順で上位10名
                     beauty_items.sort(key=lambda x: x[1], reverse=True)
+                    
+                    # 10件に満たない場合は、DB全体のランキングから補填する
+                    if len(beauty_items) < 10:
+                        all_rankings = db.get_rankings(category="AV", limit=30)
+                        for r in all_rankings:
+                            if len(beauty_items) >= 10: break
+                            # すでにリストにないかチェック (名前で比較: r[0])
+                            if not any(r[0] == item[0] for item in beauty_items):
+                                if r[3] and "amazon.co.jp" not in r[3]:
+                                    beauty_items.append(r)
+                    
                     beauty_items = beauty_items[:10]
                     
                     if beauty_items:
                         target_category = "美人解析"
                         article_html = generate_beauty_ranking_html(beauty_items)
-                        title = f"【{now_jst.strftime('%Y/%m/%d')}】前回のランキング出演女優！AI美人度解析 TOP{len(beauty_items)}"
+                        title = f"【{now_jst.strftime('%Y/%m/%d')}】AIが選ぶ！最強女優美人度解析 TOP{len(beauty_items)}"
                     else:
-                        print("抽出した女優の解析データがDBにないため、一般ランキングに切り替えます。")
+                        print("解析データがDBにないため、一般ランキングに切り替えます。")
                         names = [] # フォールバックへ
                 
                 if not names:
@@ -442,8 +454,9 @@ def main():
                         combined_items.append(mgs_items[i])
                 
                 top_items = combined_items[:args.hits]
+                
                 if not top_items:
-                    print("アイテムを取得できませんでした。")
+                    print(f"警告: 「{target_category}」でアイテムが1件も見つかりませんでした。スキップします。")
                     return
                     
                 print(f"合計 {len(top_items)}件のアイテム（FANZA:{len(fanza_items)}, MGS:{len(mgs_items)}）を取得しました。")
@@ -471,11 +484,32 @@ def main():
             target_category = args.category if args.category else (current_keyword if current_keyword else "FANZAランキング")
             print(f"手動実行 - 「{target_category}」")
             
-            # 手動実行時は通常のランキングロジックを使用 (省略のため既存を再利用)
+            # 手動実行時は通常のランキングロジックを使用
             dmm = DMMClient()
-            top_items = dmm.get_top_fanza_works(service=current_service, floor=current_floor, hits=args.hits, keyword=current_keyword)
+            fanza_items = dmm.get_top_fanza_works(service=current_service, floor=current_floor, hits=args.hits, keyword=current_keyword)
+            
+            # MGSからも取得 (手動実行でも混合ランキングにする)
+            mgs = MGSClient()
+            mgs_items = mgs.search_works(current_keyword, hits=args.hits // 2 if current_keyword else 5)
+            
+            # 結果の統合
+            combined_items = []
+            max_len = max(len(fanza_items), len(mgs_items))
+            for i in range(max_len):
+                if i < len(fanza_items):
+                    fanza_items[i]["source"] = "FANZA"
+                    combined_items.append(fanza_items[i])
+                if i < len(mgs_items):
+                    mgs_items[i]["source"] = "MGS"
+                    combined_items.append(mgs_items[i])
+            
+            top_items = combined_items[:args.hits]
+            if not top_items:
+                print("アイテムを取得できませんでした。")
+                return
+                
             article_html = generate_html_article(top_items, target_category)
-            title = f"【手動】{target_category}ランキング"
+            title = f"【手動】{target_category}ランキング (FANZA＆MGS)"
 
             # 次回の美人度解析用に女優リストを保存
             actress_names = []
@@ -490,11 +524,18 @@ def main():
                 with open("last_actresses.json", "w", encoding="utf-8") as f:
                     json.dump(actress_names, f, ensure_ascii=False)
         
-        # ライブドアブログに投稿
-        livedoor = LivedoorClient()
-        is_publish = True
-        print(f"ライブドアブログへ投稿中... [{title}] [常に公開設定]")
-        livedoor.post_article(title, article_html, categories=[target_category], publish=is_publish)
+        try:
+            livedoor = LivedoorClient()
+            is_publish = True
+            print(f"ライブドアブログへ投稿中... [{title}] [常に公開設定]")
+            res = livedoor.post_article(title, article_html, categories=[target_category], publish=is_publish)
+            if res:
+                print(f"ブログ投稿成功！: {title}")
+            else:
+                print(f"ブログ投稿失敗。")
+        except Exception as e:
+            print(f"ブログ投稿中にエラーが発生しました: {e}")
+            traceback.print_exc()
         
     except Exception as e:
         print(f"予期せぬエラー: {e}")

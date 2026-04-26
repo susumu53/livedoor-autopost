@@ -1,5 +1,6 @@
 import os
 import requests
+import xml.sax.saxutils as saxutils
 from requests.auth import HTTPBasicAuth
 from dotenv import load_dotenv
 
@@ -28,16 +29,20 @@ class LivedoorClient:
         """
         draft_value = "no" if publish else "yes"
         
+        # XMLで許可されない文字のエスケープ
+        escaped_title = saxutils.escape(title)
+        
         # AtomPub XMLの構築
         category_tags = ""
         if categories:
             for cat in categories:
-                category_tags += f'<category term="{cat}" />\n'
+                escaped_cat = saxutils.escape(cat)
+                category_tags += f'<category term="{escaped_cat}" />\n'
                 
         xml_template = f'''<?xml version="1.0" encoding="utf-8"?>
 <entry xmlns="http://www.w3.org/2005/Atom"
        xmlns:app="http://www.w3.org/2007/app">
-  <title>{title}</title>
+  <title>{escaped_title}</title>
   <content type="text/html">
     <![CDATA[{content}]]>
   </content>
