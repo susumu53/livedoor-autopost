@@ -18,34 +18,22 @@ try:
     from generate_article import BeautyManager
 except ImportError:
     BeautyManager = None
+from fortune_engine import FortuneEngine
 
-# 24時間分のローテーション設定 (サービス, フロア, キーワード, 表示用カテゴリ/タイトル)
-# FC2の SCHEDULE_24H を継承
-SCHEDULE_24H = [
-    {"service": "digital", "floor": "videoa", "keyword": "競泳水着", "category": "競泳水着・スク水"},  # 0時 (同人から変更)
-    {"service": "digital", "floor": "videoa", "keyword": "NTR", "category": "NTR"},  # 1時
-    {"service": "digital", "floor": "videoa", "keyword": "タイツ", "category": "パンスト・タイツ"},  # 2時 (同人から変更)
-    {"service": "digital", "floor": "videoa", "keyword": "痴漢", "category": "痴漢"},  # 3時
-    {"service": "digital", "floor": "videoa", "keyword": "野外", "category": "野外・露出"},  # 4時 (同人から変更)
-    {"service": "digital", "floor": "videoa", "keyword": "M字開脚", "category": "M字開脚"},  # 5時
-    {"service": "digital", "floor": "videoa", "keyword": "巨乳", "category": "巨乳"},  # 6時
-    {"service": "mono", "floor": "goods", "keyword": "オナホール", "category": "アダルトグッズ"},  # 7時
-    {"service": "digital", "floor": "videoa", "keyword": "人妻", "category": "人妻・熟女"},  # 8時
-    {"service": "digital", "floor": "videoa", "keyword": "マイクロビキニ", "category": "マイクロビキニ"},  # 9時
-    {"service": "digital", "floor": "videoa", "keyword": "素人", "category": "素人ビデオ"},  # 10時
-    {"service": "digital", "floor": "videoa", "keyword": "巨乳", "category": "巨乳女優"},  # 11時 (グッズから変更)
-    {"service": "digital", "floor": "videoa", "keyword": "企画", "category": "企画ビデオ"},  # 12時
-    {"service": "digital", "floor": "videoa", "keyword": "単体", "category": "単体女優"},  # 13時 (アニメから変更)
-    {"service": "digital", "floor": "videoa", "keyword": "制服", "category": "制服・コスプレ"},  # 14時
-    {"service": "digital", "floor": "videoa", "keyword": "美少女", "category": "美少女女優"},  # 15時 (PCゲームから変更)
-    {"service": "digital", "floor": "videoa", "keyword": "お姉さん", "category": "お姉さん"},  # 16時
-    {"service": "digital", "floor": "videoa", "keyword": "熟女", "category": "熟女・人妻"},  # 17時 (グッズから変更)
-    {"service": "digital", "floor": "videoa", "keyword": "単体", "category": "単体女優人気"},  # 18時
-    {"service": "digital", "floor": "videoa", "keyword": "OL", "category": "OL・制服"},  # 19時
-    {"service": "digital", "floor": "videoa", "keyword": "ギャル", "category": "ギャル"},  # 20時
-    {"service": "digital", "floor": "videoa", "keyword": "美脚", "category": "美脚・タイツ"},  # 21時
-    {"service": "digital", "floor": "videoa", "keyword": "中出し", "category": "中出し"},  # 22時
-    {"service": "digital", "floor": "videoa", "keyword": "VR", "category": "VRアダルト動画"},  # 23時
+# 12種類のフェチカテゴリ・ローテーション設定
+RANKING_ROTATION = [
+    {"service": "digital", "floor": "videoa", "keyword": "巨乳", "category": "巨乳女優"},
+    {"service": "digital", "floor": "videoa", "keyword": "人妻", "category": "人妻・熟女"},
+    {"service": "digital", "floor": "videoa", "keyword": "美少女", "category": "美少女女優"},
+    {"service": "digital", "floor": "videoa", "keyword": "素人", "category": "素人ビデオ"},
+    {"service": "digital", "floor": "videoa", "keyword": "制服", "category": "制服・コスプレ"},
+    {"service": "digital", "floor": "videoa", "keyword": "お姉さん", "category": "お姉さん"},
+    {"service": "digital", "floor": "videoa", "keyword": "ギャル", "category": "ギャル"},
+    {"service": "digital", "floor": "videoa", "keyword": "美脚", "category": "美脚・タイツ"},
+    {"service": "digital", "floor": "videoa", "keyword": "中出し", "category": "中出し"},
+    {"service": "digital", "floor": "videoa", "keyword": "VR", "category": "VRアダルト動画"},
+    {"service": "digital", "floor": "videoa", "keyword": "競泳水着", "category": "競泳水着・スク水"},
+    {"service": "digital", "floor": "videoa", "keyword": "熟女", "category": "熟女人気"},
 ]
 
 NG_WORDS = [
@@ -296,252 +284,276 @@ def generate_beauty_ranking_html(items):
     html += '</div>\n'
     return html
 
+def generate_single_beauty_article_html(res_data, works):
+    """
+    1人の美人分析詳細記事用HTMLを生成する (個人分析スタイル)
+    res_data: (name, score, category, aff_url, img_url, sym, neo, prop, dim, soc)
+    works: 関連作品リスト
+    """
+    name, score, _, aff_url, img_url, sym, neo, prop, dim, soc = res_data
+    
+    # アフィリエイトID調整
+    if aff_url and "amazon.co.jp" not in aff_url:
+        aff_url = aff_url.replace("namasoku-990", "namasoku-001")
+
+    html = f"""
+    <div style="font-family: 'Helvetica Neue', Arial, sans-serif; color: #333; max-width: 800px; margin: 0 auto; background: #fffaf0; padding: 20px; border-radius: 15px; border: 1px solid #ffe4e1;">
+        <h2 style="text-align: center; color: #d02090; border-bottom: 2px solid #ff69b4; padding-bottom: 10px;">【私個人の分析】{name} さんの圧倒的な美の理由を解説</h2>
+        
+        <p>こんにちは。今回は、私が個人的に注目している <b>{name}</b> さんについて、独自の解析ツールと進化心理学の視点からその魅力を徹底的に分析してみました。なぜ彼女がこれほどまでに惹きつけるのか、その「根拠」を数値とともに詳しくお伝えします。</p>
+
+        <div style="background-color: #fff0f5; padding: 20px; border-radius: 10px; text-align: center; margin: 30px 0; border: 2px solid #ff69b4;">
+            <h3 style="margin-top: 0; color: #d02090;">独自に算出した「美人指数」</h3>
+            <span style="font-size: 3em; font-weight: bold; color: #ff1493;">{score}</span> <span style="font-size: 1.2em; color: #555;">pt</span>
+            <p style="font-size: 0.9em; color: #666; margin-top: 10px;">※最高水準の美しさを誇る驚異的なスコアです</p>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{aff_url}" target="_blank" rel="noopener">
+                <img src="{img_url}" alt="{name}" style="max-width: 100%; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border: 2px solid #ffc0cb;" />
+                <p style="font-size: 0.8em; color: #ff1493; margin-top: 5px;">（画像をクリックして詳細をチェック）</p>
+            </a>
+        </div>
+
+        <h3 style="color: #ff1493; border-left: 5px solid #ff1493; padding-left: 10px;">分析の根拠1：左右対称性（シンメトリー） {sym}%</h3>
+        <p>私の分析でまず注目したのは、彼女の顔の驚異的な「シンメトリー」です。進化心理学では、顔の対称性は遺伝的な健康さを示す指標とされており、人は本能的に美しさを感じます。{name}さんは左右のバランスが極めて整っており、これが清潔感と品格を生み出しています。</p>
+
+        <h3 style="color: #ff1493; border-left: 5px solid #ff1493; padding-left: 10px;">分析の根拠2：若々しさの指標（ネオテニー） {neo}%</h3>
+        <p>次に注目すべきは、目の配置や大きさに現れる「ネオテニー（幼形適応）」の要素です。守ってあげたくなるような愛くるしさが、この高い数値に現れています。大人の色気の中に共存する、この「少女のような無垢さ」こそが彼女の大きな武器と言えるでしょう。</p>
+
+        <h3 style="color: #ff1493; border-left: 5px solid #ff1493; padding-left: 10px;">分析の根拠3：黄金比に基づくプロポーション {prop}%</h3>
+        <p>顔の各パーツの配置を測定したところ、科学的に最も美しいとされる「黄金比」に非常に近いことがわかりました。無意識に「整っている」と感じさせる安定感は、この完璧な配置から来ています。</p>
+
+        <h3 style="color: #ff1493; border-left: 5px solid #ff1493; padding-left: 10px;">分析の根拠4：女性的な魅力（性的二型） {dim}%</h3>
+        <p>唇の厚みや顎のラインなど、女性特有のチャームポイントがどれだけ際立っているかを示す指標です。{name}さんはこのコントラストが非常に強く、一目見ただけで引き込まれるような強い女性的魅力を放っています。</p>
+
+        <h3 style="color: #ff1493; border-left: 5px solid #ff1493; padding-left: 10px;">分析の根拠5：時代が求める美（トレンド度） {soc}%</h3>
+        <p>最後に、現在のSNSや検索トレンドなどの社会的評価を加味しました。今、多くの人が求めている「旬の美しさ」を彼女は完璧に体現しており、その話題性がスコアを後押ししています。</p>
+
+        <hr style="margin: 40px 0; border: 0; border-top: 1px dashed #ff69b4;" />
+
+        <h3 style="text-align: center; color: #d02090;">【厳選】{name} さんの魅力を堪能できる作品</h3>
+        <p style="text-align: center; font-size: 0.9em; color: #666;">今回分析の対象となった、彼女の魅力が詰まった作品をご紹介します。画像から詳細を確認できます。</p>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;">
+    """
+    
+    for item in works[:8]:
+        t = item.get('title', '')
+        i_url = item.get('imageURL', {}).get('large', '')
+        a_url = item.get('affiliateURL', '').replace("namasoku-990", "namasoku-001")
+        
+        html += f"""
+            <div style="background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); text-align: center;">
+                <a href="{a_url}" target="_blank" rel="noopener">
+                    <img src="{i_url}" style="width: 100%; border-radius: 5px; margin-bottom: 8px;" alt="{t}">
+                </a>
+                <div style="font-size: 12px; line-height: 1.4; height: 3em; overflow: hidden; margin-bottom: 8px;">
+                    <a href="{a_url}" target="_blank" rel="noopener" style="text-decoration: none; color: #333;">{t}</a>
+                </div>
+                <a href="{a_url}" target="_blank" rel="noopener" style="display: inline-block; background: #ff1493; color: #fff; padding: 5px 10px; border-radius: 15px; text-decoration: none; font-size: 12px; font-weight: bold;">作品をチェック</a>
+            </div>
+        """
+        
+    html += """
+        </div>
+        <div style="margin-top: 30px; text-align: center; font-size: 0.8em; color: #888;">
+            <p>※本分析はあくまで個人の視点と独自の解析システムによるものです。<br/>最新の作品情報はリンク先の公式サイトにてご確認ください。</p>
+        </div>
+    </div>
+    """
+    return html
+
+def generate_fortune_article_html(actress_name, chart, works):
+    """
+    四柱推命・運勢鑑定記事用HTMLを生成する
+    """
+    theme_color = "#6b0f9c" # 占いらしい紫
+    
+    # 命式データの展開
+    dm = chart["day_master"]
+    trends = chart["luck_trends"]
+    
+    html = f"""
+    <div style="font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif; color: #333; max-width: 800px; margin: 0 auto; background: #fdfcff; padding: 25px; border: 2px solid {theme_color}; border-radius: 20px; box-shadow: 0 10px 30px rgba(107, 15, 156, 0.1);">
+        <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px double {theme_color}; padding-bottom: 20px;">
+            <p style="color: {theme_color}; font-weight: bold; margin-bottom: 5px;">★ 運命の鑑定書 ★</p>
+            <h1 style="margin: 0; color: #4b0082; font-size: 26px;">{actress_name} 様 の宿命と未来予測</h1>
+        </div>
+
+        <p style="line-height: 1.8;">
+            最新の四柱推命ロジック「Fortune Engine」を用いて、<b>{actress_name}</b> さんの本質と運勢のバイオリズムを徹底鑑定しました。
+            日主「{dm['stem']}」が導き出す、彼女の本当の姿とは？
+        </p>
+
+        <div style="background: {theme_color}; color: white; padding: 15px; border-radius: 10px; margin: 30px 0;">
+            <h2 style="margin: 0; font-size: 18px; text-align: center;">☯ 魂の本質（日主：{dm['stem']} - {dm['element']}）</h2>
+        </div>
+        <p style="padding: 15px; background: #f5f0ff; border-left: 5px solid {theme_color}; border-radius: 0 10px 10px 0;">
+            <b>【性格診断】</b><br/>{chart['personality']}
+        </p>
+
+        <div style="background: {theme_color}; color: white; padding: 15px; border-radius: 10px; margin: 30px 0;">
+            <h2 style="margin: 0; font-size: 18px; text-align: center;">📈 運勢推移（過去・現在・未来）</h2>
+        </div>
+        
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; text-align: center;">
+            <tr style="background: #e6e0f8; color: {theme_color};">
+                <th style="padding: 12px; border: 1px solid #ddd;">時期</th>
+                <th style="padding: 12px; border: 1px solid #ddd;">総合</th>
+                <th style="padding: 12px; border: 1px solid #ddd;">仕事</th>
+                <th style="padding: 12px; border: 1px solid #ddd;">恋愛</th>
+                <th style="padding: 12px; border: 1px solid #ddd;">金運</th>
+                <th style="padding: 12px; border: 1px solid #ddd;">健康</th>
+            </tr>
+    """
+    
+    for tr in trends:
+        bg = "#fff" if tr['label'] != "現在" else "#fff0f5"
+        weight = "bold" if tr['label'] == "現在" else "normal"
+        
+        # 星による視覚化
+        def get_stars(score):
+            count = max(1, min(5, round(score / 20)))
+            return "★" * count + "☆" * (5 - count)
+            
+        html += f"""
+            <tr style="background: {bg}; font-weight: {weight};">
+                <td style="padding: 12px; border: 1px solid #ddd;">{tr['year']}年 ({tr['label']})</td>
+                <td style="padding: 12px; border: 1px solid #ddd; color: #d32f2f;"><span style="color: #ff9800;">{get_stars(tr['overall'])}</span><br/>{tr['overall']}</td>
+                <td style="padding: 12px; border: 1px solid #ddd;">{tr['career']}</td>
+                <td style="padding: 12px; border: 1px solid #ddd;">{tr['love']}</td>
+                <td style="padding: 12px; border: 1px solid #ddd; color: #c09000;">{tr['wealth']}</td>
+                <td style="padding: 12px; border: 1px solid #ddd;">{tr['health']}</td>
+            </tr>
+        """
+        
+    html += f"""
+        </table>
+
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 2px dashed #ddd;">
+            <h3 style="text-align: center; color: {theme_color};">✨ 関連作品ピックアップ</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; margin-top: 20px;">
+    """
+    
+    for item in works[:4]:
+        t = item.get('title', '')
+        i_url = item.get('imageURL', {}).get('large', '')
+        a_url = item.get('affiliateURL', '').replace("namasoku-990", "namasoku-001")
+        
+        html += f"""
+            <div style="background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); text-align: center;">
+                <a href="{a_url}" target="_blank">
+                    <img src="{i_url}" style="width: 100%; border-radius: 5px; margin-bottom: 8px;" alt="{t}">
+                </a>
+                <div style="font-size: 11px; line-height: 1.4; height: 3em; overflow: hidden; margin-bottom: 8px;">
+                    <a href="{a_url}" target="_blank" style="text-decoration: none; color: #333;">{t}</a>
+                </div>
+            </div>
+        """
+        
+    html += """
+            </div>
+        </div>
+        
+        <div style="margin-top: 30px; text-align: center; font-size: 0.8em; color: #888;">
+            <p>※分析結果は四柱推命の伝統的な理論に基づく独自の鑑定です。<br/>運命は自らの行動で切り拓くものです。日々の彩りとしてお楽しみください。</p>
+        </div>
+    </div>
+    """
+    return html
+
+from curation_engine import CurationEngine, THEMES
+
 def main():
-    parser = argparse.ArgumentParser(description="Livedoor Blog FANZAランキング自動投稿スクリプト")
+    parser = argparse.ArgumentParser(description="Livedoor Blog 美女まとめ自動投稿スクリプト")
+    parser.add_argument("--mode", type=str, default="curation", choices=["curation", "legacy"], help="投稿モード (curation: 週2回まとめ特集, legacy: 従来ランキング)")
+    parser.add_argument("--theme", type=str, default=None, help="まとめ特集テーマ (cosplay, bishojo, legs, mature, busty, ranking)")
+    parser.add_argument("--count", type=int, default=20, help="まとめ記事に掲載する人数/件数 (デフォルト: 20)")
+    parser.add_argument("--dry-run", action="store_true", help="ブログに投稿せず生成テストのみ行う")
+    
+    # レガシー用オプション
     parser.add_argument("--keyword", type=str, default=None, help="手動検索キーワード")
     parser.add_argument("--service", type=str, default="digital", help="手動指定時のサービス")
     parser.add_argument("--floor", type=str, default="videoa", help="手動指定時のフロア")
     parser.add_argument("--category", type=str, default=None, help="手動時のカテゴリ名")
     parser.add_argument("--hits", type=int, default=10, help="取得件数")
-    # --draft を削除（常に公開）
     args = parser.parse_args()
 
+    title = None
+    article_html = None
+    target_category = "美女まとめ"
+    post_tags = []
+
     try:
-        # スケジュールの決定
-        if not args.keyword and not args.category:
-            # メイン処理 (Livedoor用は専用DBを使用)
-            db_path_fanza = os.path.join(os.path.dirname(os.path.abspath(__file__)), "beauty_index_fanza.db")
-            db = BeautyDatabase(db_path=db_path_fanza)
-            
+        if args.mode == "curation" and not args.keyword:
+            # === 【新機能】週2回・20〜30人まとめ特集モード ===
             jst = datetime.timezone(datetime.timedelta(hours=9))
             now_jst = datetime.datetime.now(jst)
-            current_hour = now_jst.hour
+            weekday = now_jst.weekday()  # 0:月, 2:水, 6:日
+            week_num = now_jst.isocalendar()[1]
             
-            # 2時間おきにローテーション
-            # 偶数時: フェチランキング, 奇数時: 美人度ランキング
-            is_beauty_time = (current_hour % 2 != 0)
-            
-            if is_beauty_time:
-                print(f"JST {current_hour}時: 美人度ランキング配信タイム")
-                
-                # 前回の投稿から女優リストを読み込む
-                names = []
-                # 複数のパス候補をチェック
-                json_paths = ["last_actresses.json"]
-                target_json = None
-                for jp in json_paths:
-                    if os.path.exists(jp):
-                        target_json = jp
-                        break
-                
-                if target_json:
-                    try:
-                        print(f"Loading actress list from {target_json}")
-                        with open(target_json, "r", encoding="utf-8") as f:
-                            names = json.load(f)
-                    except Exception as e:
-                        print(f"Error loading {target_json}: {e}")
-                
-                if names:
-                    print(f"前回のランキングから女優 {len(names)} 名を抽出しました。")
-                    
-                    # 既にDBにあるかチェックし、なければ分析を実行（多様性を確保）
-                    if BeautyManager:
-                        manager = BeautyManager(db_path=db_path_fanza)
-                        analyzed_count = 0
-                        for name in names:
-                            # 分析上限を少し増やす (3 -> 6)
-                            if analyzed_count >= 6: break 
-                            
-                            res = db.get_score_by_name(name, category="AV")
-                            if not res:
-                                print(f"新着女優 {name} をAI分析中...")
-                                try:
-                                    # 分析を実行
-                                    # strict_fanza=False にして検索ヒット率を上げる
-                                    manager.run_objective_analysis(name=name, category="AV", strict_fanza=False, update_wp=False)
-                                    analyzed_count += 1
-                                except Exception as e:
-                                    print(f"分析エラー ({name}): {e}")
-                        
-                        if analyzed_count == 0:
-                            print("  [WARNING] 新着女優の分析が1件も成功しませんでした。")
-                    else:
-                        print("BeautyManagerがロードされていないため、新規分析をスキップします。")
-                    
-                    beauty_items = []
-                    for name in names:
-                        res = db.get_score_by_name(name, category="AV")
-                        if res:
-                            if res[3] and "amazon.co.jp" not in res[3]:
-                                beauty_items.append(res)
-                            else:
-                                print(f"Skipping {name}: No valid affiliate URL found in DB.")
-                        else:
-                            print(f"Skipping {name}: Not found in Beauty Database.")
-                    
-                    # 多様性を出すために、最近投稿された女優を避けるロジック（オプション）
-                    # 今回はシンプルにスコア順で上位10名
-                    beauty_items.sort(key=lambda x: x[1], reverse=True)
-                    
-                    # 10件に満たない場合は、DB全体のランキングから補填する
-                    if len(beauty_items) < 10:
-                        all_rankings = db.get_rankings(category="AV", limit=30)
-                        for r in all_rankings:
-                            if len(beauty_items) >= 10: break
-                            # すでにリストにないかチェック (名前で比較: r[0])
-                            if not any(r[0] == item[0] for item in beauty_items):
-                                if r[3] and "amazon.co.jp" not in r[3]:
-                                    beauty_items.append(r)
-                    
-                    beauty_items = beauty_items[:10]
-                    
-                    if beauty_items:
-                        target_category = "美人解析"
-                        article_html = generate_beauty_ranking_html(beauty_items)
-                        title = f"【{now_jst.strftime('%Y/%m/%d')}】AIが選ぶ！最強女優美人度解析 TOP{len(beauty_items)}"
-                    else:
-                        print("解析データがDBにないため、一般ランキングに切り替えます。")
-                        names = [] # フォールバックへ
-                
-                if not names:
-                    # フォールバック: 従来通り全体から取得
-                    all_beauty_items = db.get_rankings(category="AV", limit=50)
-                    beauty_items = [item for item in all_beauty_items if item[3] and "amazon.co.jp" not in item[3]][:10]
-                    
-                    if not beauty_items:
-                        print("美人度データがないため、通常のランキングに切り替えます。")
-                        is_beauty_time = False
-                    else:
-                        target_category = "美人解析"
-                        article_html = generate_beauty_ranking_html(beauty_items)
-                        title = f"【{now_jst.strftime('%Y/%m/%d')}】AIが選ぶ！最強AV女優美人度ランキング TOP{len(beauty_items)}"
-                        print(f"Success: {len(beauty_items)} items found for fallback beauty ranking.")
+            # テーマの決定（引数指定がなければ曜日別にローテーション）
+            target_theme = args.theme
+            if not target_theme:
+                if weekday == 2:  # 水曜日: フェチ・特化ジャンル特集
+                    special_rotation = ["cosplay", "legs", "mature", "busty"]
+                    target_theme = special_rotation[week_num % len(special_rotation)]
+                elif weekday == 6:  # 日曜日: 総合ランキング・王道美少女
+                    sunday_rotation = ["ranking", "bishojo"]
+                    target_theme = sunday_rotation[week_num % len(sunday_rotation)]
+                else:
+                    # その他の曜日（手動実行等）
+                    all_keys = list(THEMES.keys())
+                    target_theme = all_keys[now_jst.day % len(all_keys)]
 
-            if not is_beauty_time:
-                conf = SCHEDULE_24H[current_hour % 24]
-                current_keyword = conf["keyword"]
-                current_service = conf["service"]
-                current_floor = conf["floor"]
-                target_category = conf["category"]
-                print(f"JST {current_hour}時: スケジュール実行 - 「{target_category}」")
-                
-                # DMM/FANZAから売れ筋情報を取得 (複数のフロアを試行)
-                dmm = DMMClient()
-                fanza_items = []
-                for floor in [current_floor, "videoa", "videoc"]:
-                    print(f"Fetching FANZA Top Ranking ({floor})...")
-                    fanza_items = dmm.get_top_fanza_works(service=current_service, floor=floor, hits=args.hits, keyword=current_keyword)
-                    if fanza_items: break
-                
-                if not fanza_items and current_keyword:
-                    print("FANZA結果0件のため、キーワードなしで再試行...")
-                    fanza_items = dmm.get_top_fanza_works(service=current_service, floor="videoa", hits=args.hits, keyword=None)
+            print(f"【週2回まとめ特集実行】 テーマ: {target_theme} | 掲載数: {args.count}件")
+            engine = CurationEngine()
+            title, article_html, target_category, tags = engine.generate_weekly_article_html(
+                theme_key=target_theme, count=args.count
+            )
+            post_tags = [target_category] + [t for t in tags if t != target_category][:15]
 
-                # MGSから情報を取得
-                mgs = MGSClient()
-                mgs_items = mgs.search_works(current_keyword, hits=args.hits // 2 if current_keyword else 5)
-                
-                # 結果の統合とインターリーブ
-                combined_items = []
-                max_len = max(len(fanza_items), len(mgs_items))
-                for i in range(max_len):
-                    if i < len(fanza_items):
-                        fanza_items[i]["source"] = "FANZA"
-                        combined_items.append(fanza_items[i])
-                    if i < len(mgs_items):
-                        mgs_items[i]["source"] = "MGS"
-                        combined_items.append(mgs_items[i])
-                
-                top_items = combined_items[:args.hits]
-                
-                if not top_items:
-                    print(f"警告: 「{target_category}」でアイテムが1件も見つかりませんでした。スキップします。")
-                    return
-                    
-                print(f"合計 {len(top_items)}件のアイテム（FANZA:{len(fanza_items)}, MGS:{len(mgs_items)}）を取得しました。")
-                article_html = generate_html_article(top_items, target_category)
-                today_str = now_jst.strftime("%Y/%m/%d")
-                title = f"【{today_str}】FANZA＆MGS混合！【{target_category}】ランキング TOP{args.hits}"
-                
-                # 次回の美人度解析用に女優リストを保存
-                actress_names = []
-                for item in top_items:
-                    for act in item.get("iteminfo", {}).get("actress", []):
-                        name = act.get("name")
-                        if name and name not in actress_names:
-                            actress_names.append(name)
-                
-                if actress_names:
-                    print(f"次回の解析用に女優 {len(actress_names)} 名を保存しました。")
-                    with open("last_actresses.json", "w", encoding="utf-8") as f:
-                        json.dump(actress_names, f, ensure_ascii=False)
-
-        else:
-            current_keyword = args.keyword
-            current_service = args.service
-            current_floor = args.floor
-            target_category = args.category if args.category else (current_keyword if current_keyword else "FANZAランキング")
-            print(f"手動実行 - 「{target_category}」")
-            
-            # 手動実行時は通常のランキングロジックを使用
+        elif args.keyword or args.category or args.mode == "legacy":
+            # === 従来の個別/手動ランキングモード（互換性維持） ===
+            target_category = args.category or args.keyword or "FANZAランキング"
+            print(f"従来手動実行 - 「{target_category}」")
             dmm = DMMClient()
-            fanza_items = dmm.get_top_fanza_works(service=current_service, floor=current_floor, hits=args.hits, keyword=current_keyword)
-            
-            # MGSからも取得 (手動実行でも混合ランキングにする)
-            mgs = MGSClient()
-            mgs_items = mgs.search_works(current_keyword, hits=args.hits // 2 if current_keyword else 5)
-            
-            # 結果の統合
-            combined_items = []
-            max_len = max(len(fanza_items), len(mgs_items))
-            for i in range(max_len):
-                if i < len(fanza_items):
-                    fanza_items[i]["source"] = "FANZA"
-                    combined_items.append(fanza_items[i])
-                if i < len(mgs_items):
-                    mgs_items[i]["source"] = "MGS"
-                    combined_items.append(mgs_items[i])
-            
-            top_items = combined_items[:args.hits]
-            if not top_items:
-                print("アイテムを取得できませんでした。")
-                return
-                
-            article_html = generate_html_article(top_items, target_category)
-            title = f"【手動】{target_category}ランキング (FANZA＆MGS)"
+            f_items = dmm.get_top_fanza_works(service=args.service, floor=args.floor, hits=args.hits, keyword=args.keyword)
+            m_items = MGSClient().search_works(args.keyword, hits=args.hits // 2 if args.keyword else 5)
+            combined = []
+            for i in range(max(len(f_items), len(m_items))):
+                if i < len(f_items): f_items[i]["source"]="FANZA"; combined.append(f_items[i])
+                if i < len(m_items): m_items[i]["source"]="MGS"; combined.append(m_items[i])
+            top_items = combined[:args.hits]
+            if top_items:
+                article_html = generate_html_article(top_items, target_category)
+                title = f"【私個人の厳選】{target_category} 今チェックすべきランキング TOP{args.hits}"
+                post_tags = [target_category]
 
-            # 次回の美人度解析用に女優リストを保存
-            actress_names = []
-            for item in top_items:
-                for act in item.get("iteminfo", {}).get("actress", []):
-                    name = act.get("name")
-                    if name and name not in actress_names:
-                        actress_names.append(name)
-            
-            if actress_names:
-                print(f"次回の解析用に女優 {len(actress_names)} 名を保存しました。")
-                with open("last_actresses.json", "w", encoding="utf-8") as f:
-                    json.dump(actress_names, f, ensure_ascii=False)
-        
-        try:
-            livedoor = LivedoorClient()
-            is_publish = True
-            print(f"ライブドアブログへ投稿中... [{title}] [常に公開設定]")
-            res = livedoor.post_article(title, article_html, categories=[target_category], publish=is_publish)
-            if res:
-                print(f"ブログ投稿成功！: {title}")
+        # 最終的な投稿処理
+        if title and article_html:
+            if args.dry_run:
+                print(f"[DRY-RUN成功] タイトル: {title}")
+                print(f"[DRY-RUN成功] カテゴリー: {target_category}")
+                print(f"[DRY-RUN成功] タグ数: {len(post_tags)}")
+                print(f"[DRY-RUN成功] HTML文字数: {len(article_html)}")
             else:
-                print(f"ブログ投稿失敗。")
-        except Exception as e:
-            print(f"ブログ投稿中にエラーが発生しました: {e}")
-            traceback.print_exc()
-        
+                livedoor = LivedoorClient()
+                print(f"ライブドアブログへ投稿中... [{title}]")
+                res = livedoor.post_article(title, article_html, categories=post_tags, publish=True)
+                if res:
+                    print(f"ブログ投稿成功！: {title}")
+                else:
+                    print(f"ブログ投稿失敗。")
+        else:
+            print("投稿対象のデータが生成されなかったため、スキップします。")
+            
     except Exception as e:
-        print(f"予期せぬエラー: {e}")
-        import traceback
+        print(f"エラー発生: {e}")
         traceback.print_exc()
         sys.exit(1)
 
 if __name__ == "__main__":
     main()
+

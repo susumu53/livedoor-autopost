@@ -1,20 +1,24 @@
-name: Livedoor FANZA Auto Post
+name: Livedoor Weekly Curation Auto Post
 permissions:
   contents: write
   
 on:
   schedule:
-    # 毎時0分に実行し、時間ごとに異なるカテゴリを自動投稿する
-    - cron: '0 * * * *'
+    # 週2回実行: 毎週水曜日と日曜日 20:00 JST (UTC 11:00)
+    - cron: '0 11 * * 0,3'
   workflow_dispatch:
     inputs:
-      keyword:
-        description: '検索キーワード（手動で特定のカテゴリをすぐ投稿したい場合）'
+      theme:
+        description: 'まとめ特集テーマ (cosplay, bishojo, legs, mature, busty, ranking / 空欄で曜日別自動選択)'
         required: false
         default: ''
+      count:
+        description: '1記事に掲載する人数/作品数 (デフォルト: 20)'
+        required: false
+        default: '20'
 
 jobs:
-  post-ranking:
+  post-curation:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -34,7 +38,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           
-      - name: Run Auto Post Script
+      - name: Run Curation Auto Post Script
         env:
           DMM_API_ID: ${{ secrets.DMM_API_ID }}
           DMM_AFFILIATE_ID: ${{ secrets.DMM_AFFILIATE_ID }}
@@ -47,20 +51,27 @@ jobs:
           WP_URL: ${{ secrets.WP_URL }}
           WP_USERNAME: ${{ secrets.WP_USERNAME }}
           WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MGS_AFFILIATE_ID: ${{ secrets.MGS_AFFILIATE_ID }}
         run: |
-          if [ -n "${{ github.event.inputs.keyword }}" ]; then
-            # 手動実行でキーワードがある場合
-            python main.py --hits 10 --keyword "${{ github.event.inputs.keyword }}"
+          COUNT="${{ github.event.inputs.count }}"
+          if [ -z "$COUNT" ]; then
+            COUNT="20"
+          fi
+          
+          THEME="${{ github.event.inputs.theme }}"
+          if [ -n "$THEME" ]; then
+            python main.py --count "$COUNT" --theme "$THEME"
           else
-            # 定期実行
-            python main.py --hits 10
+            python main.py --count "$COUNT"
           fi
 
       - name: Commit and push changes
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add beauty_index_fanza.db last_actresses.json
-          git commit -m "Update FANZA ranking database and actress list" || echo "No changes to commit"
-          git pull --rebase origin master
-          git push
+          git add beauty_index_fanza.db last_actresses.json || true
+          git commit -m "Update database and actress list [skip ci]" || echo "No changes to commit"
+          git pull --rebase origin master || true
+          git push || true
+
