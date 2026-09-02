@@ -30,9 +30,15 @@ class BeautyDatabase:
                     social_meme REAL,
                     affiliate_url TEXT,
                     image_url TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    posted_at TIMESTAMP
                 )
             """)
+            # 既存のテーブルにカラムがない場合は追加を試みる
+            try:
+                conn.execute("ALTER TABLE scores ADD COLUMN posted_at TIMESTAMP")
+            except sqlite3.OperationalError:
+                pass # すでに存在する場合
 
     def save_score(self, data):
         """
@@ -92,6 +98,20 @@ class BeautyDatabase:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(query, (name, category))
+            return cursor.fetchone()
+
+    def mark_as_posted(self, name, category="AV"):
+        with self._get_connection() as conn:
+            conn.execute(
+                "UPDATE scores SET posted_at = CURRENT_TIMESTAMP WHERE name = ? AND category = ?",
+                (name, category)
+            )
+
+    def get_next_unposted_score(self, category="AV"):
+        query = "SELECT name, total_score, category, affiliate_url, image_url, symmetry, neoteny, proportion, dimorphism, social_meme FROM scores WHERE posted_at IS NULL AND category = ? ORDER BY created_at ASC LIMIT 1"
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(query, (category,))
             return cursor.fetchone()
 
 if __name__ == "__main__":

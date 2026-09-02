@@ -17,11 +17,12 @@ class MGSClient:
         }
         self.cookies = {"adc": "1"}
 
-    def search_works(self, keyword=None, hits=5):
+    def search_works(self, keyword=None, hits=5, sort="pop"):
         """
         MGSの作品を検索・取得する
+        sort: n (新着), pop (人気), rating (評価)
         """
-        params = {"sort": "n"}
+        params = {"sort": sort}
         if keyword:
             params["search_word"] = keyword
             
@@ -41,12 +42,12 @@ class MGSClient:
             soup = BeautifulSoup(response.text, 'html.parser')
             items = []
             
-            # 検索結果のリストを取得 (MGSのサイト構造変更に対応)
-            list_items = soup.select('div.rank_list > ul > li') or soup.select('.common_product_list li') or soup.select('li.tile') or soup.select('.search_list li')
+            # 検索結果のリストを取得
+            list_items = soup.select('.common_product_list li') or soup.select('li.tile') or soup.select('.search_list li') or soup.select('div.rank_list > ul > li')
             
             if not list_items:
-                print("MGS list_items is empty. Trying fallback div selector...")
-                list_items = soup.select('.common_product_list .tile') or soup.select('.product_list li')
+                print("MGS list_items is empty. Trying fallback selectors...")
+                list_items = soup.select('.product_list li')
             
             for li in list_items[:hits]:
                 try:
@@ -71,6 +72,55 @@ class MGSClient:
             print(f"MGS search error: {e}")
             return []
 
+    def get_ranking(self, type=1, hits=5):
+        """
+        MGSのランキングを取得する
+        type: 1 (リアルタイム), 2 (デイリー), 3 (ウィークリー), 4 (マンスリー)
+        """
+        url = f"{self.base_url}/ranking/index.php"
+        params = {"type": type}
+        
+        print(f"MGS fetching Ranking URL: {url} with params: {params}")
+        
+        try:
+            response = requests.get(
+                url, 
+                params=params,
+                headers=self.headers, 
+                cookies=self.cookies, 
+                timeout=10
+            )
+            if response.status_code != 200:
+                return []
+                
+            soup = BeautifulSoup(response.text, 'html.parser')
+            items = []
+            
+            # ランキングページのセレクタ
+            list_items = soup.select('div.rank_list > ul > li') or soup.select('.common_product_list li')
+            
+            for li in list_items[:hits]:
+                try:
+                    a_tag = li.select_one('a[href*="product_detail"]')
+                    if not a_tag: continue
+                    
+                    link = a_tag.get('href', '')
+                    match = re.search(r'product_detail/([^/?]+)/', link)
+                    if not match: continue
+                    
+                    product_id = match.group(1)
+                    detail = self.get_product_detail(product_id)
+                    if detail:
+                        items.append(detail)
+                        time.sleep(0.2)
+                except Exception as e:
+                    print(f"Error parsing MGS ranking item: {e}")
+                    
+            return items
+        except Exception as e:
+            print(f"MGS ranking error: {e}")
+            return []
+
     def get_product_detail(self, product_id):
         """
         作品の詳細情報を取得する
@@ -85,7 +135,7 @@ class MGSClient:
                 
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # タイトル (pycの文字列から h1.tag)
+            # タイトル
             title_tag = soup.select_one('h1.tag') or soup.select_one('h1.tag_name') or soup.select_one('h1')
             title = title_tag.get_text(strip=True) if title_tag else "タイトル不明"
             
@@ -99,7 +149,7 @@ class MGSClient:
             sample_tags = soup.select('#sample-photo a.sample_image')
             samples = [s.get('href') for s in sample_tags if s.get('href')]
             
-            # 価格 (複数の候補をチェック)
+            # 価格
             price_selectors = ['#download_hd_price', '#download_price', '.price', 'div.price', 'p.price']
             price = 0
             for selector in price_selectors:
@@ -111,11 +161,11 @@ class MGSClient:
                         price = int(price_match.group(1).replace(',', ''))
                         break
             
-            # アイテム情報 (出演者, メーカー, レーベル, 配信開始)
+            # アイテム情報
             iteminfo = {"actress": [], "maker": [], "label": []}
             date = ""
             
-            # 詳細データテーブルから抽出
+            # 詳細データテーブル
             for tr in soup.select('table.detail_data tr') or soup.select('div.detail_data table tr'):
                 th = tr.select_one('th')
                 td = tr.select_one('td')
