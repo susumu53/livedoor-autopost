@@ -522,6 +522,40 @@ class SingleReviewEngine:
 
         if response.status_code in [200, 201]:
             print(f"[SUCCESS] 単体深掘りレビューの投稿に成功しました！(ステータス: {response.status_code})")
+            art_url = ""
+            try:
+                import xml.etree.ElementTree as ET
+                root = ET.fromstring(response.text)
+                ns = {'atom': 'http://www.w3.org/2005/Atom'}
+                alt_links = [l.attrib.get('href') for l in root.findall('atom:link', ns) if l.attrib.get('rel') == 'alternate']
+                if alt_links:
+                    art_url = alt_links[0]
+            except Exception as e:
+                print(f"[URL抽出警告] {e}")
+
+            if not art_url:
+                art_url = f"https://{self.blog_id}.livedoor.blog/"
+
+            print(f"[公開URL] {art_url}")
+
+            if publish:
+                try:
+                    from notifier import ArticleNotifier
+                    notifier = ArticleNotifier()
+                    blog_name = "大人の性教育" if "ranking000" in self.blog_id else None
+                    tags = [category, "大人の性教育"]
+                    if work.get('actress'):
+                        tags.append(work.get('actress'))
+                    notifier.send_notification_email(
+                        title=title,
+                        article_url=art_url,
+                        category=category,
+                        blog_title=blog_name,
+                        hashtags=tags
+                    )
+                except Exception as notify_err:
+                    print(f"[通知処理エラー] {notify_err}")
+
             return response.text
         else:
             print(f"[FAILED] 投稿失敗: ステータス {response.status_code}")

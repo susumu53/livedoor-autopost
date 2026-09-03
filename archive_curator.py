@@ -498,7 +498,36 @@ class ArchiveCurator:
         )
 
         if response.status_code in [200, 201]:
+            art_url = ""
+            try:
+                root = ET.fromstring(response.text)
+                ns = {'atom': 'http://www.w3.org/2005/Atom'}
+                alt_links = [l.attrib.get('href') for l in root.findall('atom:link', ns) if l.attrib.get('rel') == 'alternate']
+                if alt_links:
+                    art_url = alt_links[0]
+            except Exception as e:
+                print(f"[URL抽出警告] {e}")
+
+            if not art_url:
+                art_url = "https://bijozukan.doorblog.jp/"
+
             print(f"[SUCCESS] 総集編記事の投稿に成功しました！(ステータス: {response.status_code})")
+            print(f"[公開URL] {art_url}")
+
+            if publish:
+                try:
+                    from notifier import ArticleNotifier
+                    notifier = ArticleNotifier()
+                    notifier.send_notification_email(
+                        title=title,
+                        article_url=art_url,
+                        category="美女総集編",
+                        blog_title="美女図鑑",
+                        hashtags=["美女図鑑", "美女", "グラビア", f"Vol{vol}"]
+                    )
+                except Exception as notify_err:
+                    print(f"[通知送信エラー] {notify_err}")
+
             return response.text
         else:
             print(f"[FAILED] 投稿失敗: ステータス {response.status_code}")
@@ -530,6 +559,42 @@ class ArchiveCurator:
         except Exception as e:
             print(f"進捗ファイルの保存エラー: {e}")
 
+    def notify_article(self, article_url=None, title=None):
+        """指定した記事（または最新記事）のX投稿通知を ntfy に送信する"""
+        from notifier import ArticleNotifier
+        if not article_url or not title:
+            print(f"最新記事をAtomPubから取得中 ({self.blog_id})...")
+            page_url = f"https://livedoor.blogcms.jp/atompub/{self.blog_id}/article"
+            try:
+                res = requests.get(page_url, auth=HTTPBasicAuth(self.livedoor_id, self.api_key), timeout=15)
+                if res.status_code == 200:
+                    root = ET.fromstring(res.text)
+                    ns = {'atom': 'http://www.w3.org/2005/Atom'}
+                    entries = root.findall('atom:entry', ns)
+                    if entries:
+                        latest = entries[0]
+                        t_elem = latest.find('atom:title', ns)
+                        title = title or (t_elem.text if t_elem is not None else "美女図鑑 新着記事")
+                        alt_links = [l.attrib.get('href') for l in latest.findall('atom:link', ns) if l.attrib.get('rel') == 'alternate']
+                        article_url = article_url or (alt_links[0] if alt_links else "https://bijozukan.doorblog.jp/")
+            except Exception as e:
+                print(f"AtomPub取得エラー: {e}")
+
+        if not article_url:
+            print("[エラー] 通知対象の記事URLが特定できませんでした。")
+            return False
+
+        notifier = ArticleNotifier()
+        print(f"[通知送信開始] {title} ({article_url})")
+        notifier.send_notification_email(
+            title=title,
+            article_url=article_url,
+            category="美女総集編",
+            blog_title="美女図鑑",
+            hashtags=["美女図鑑", "美女", "グラビア"]
+        )
+        return True
+
     def run_daily_archive_post(self, count=30):
         """一日一回、次の巻（Vol.X）を自動投稿して進捗を更新する"""
         progress = self.load_progress()
@@ -542,10 +607,21 @@ class ArchiveCurator:
 
         res = self.post_archive_article(count=count, vol=vol, start_offset=offset, publish=True)
         if res:
+            art_url = ""
+            try:
+                root = ET.fromstring(res)
+                ns = {'atom': 'http://www.w3.org/2005/Atom'}
+                alt_links = [l.attrib.get('href') for l in root.findall('atom:link', ns) if l.attrib.get('rel') == 'alternate']
+                if alt_links:
+                    art_url = alt_links[0]
+            except Exception:
+                pass
+
             progress["current_vol"] = vol + 1
             progress["posted_history"].append({
                 "vol": vol,
-                "posted_at": datetime.datetime.now().isoformat()
+                "posted_at": datetime.datetime.now().isoformat(),
+                "url": art_url or "https://bijozukan.doorblog.jp/"
             })
             self.save_progress(progress)
             print(f"🎉 [SUCCESS] Vol.{vol} の投稿が完了しました！次回予定: Vol.{vol + 1}")
@@ -561,13 +637,20 @@ if __name__ == "__main__":
     parser.add_argument("--vol", type=int, default=None, help="手動指定時の巻数 (例: 1, 2, 3...)")
     parser.add_argument("--offset", type=int, default=None, help="手動指定時のスキップ件数")
     parser.add_argument("--daily-auto", action="store_true", help="一日一回モード：前回の続きから自動投稿して進捗を更新する")
+    parser.add_argument("--notify-latest", action="store_true", help="美女図鑑の最新記事を ntfy に送信してX投稿リンクを発行する")
+    parser.add_argument("--notify-url", type=str, default=None, help="指定URLの記事を ntfy に送信")
+    parser.add_argument("--notify-title", type=str, default=None, help="通知時のタイトル（--notify-urlと併用）")
     parser.add_argument("--dry-run", action="store_true", help="投稿せずHTML生成のみテストする")
     parser.add_argument("--blog-id", type=str, default="ranking000-w6crxelo", help="対象ブログID")
     args = parser.parse_args()
 
     curator = ArchiveCurator(blog_id=args.blog_id)
 
-    if args.daily_auto:
+    if args.notify_latest:
+        curator.notify_article()
+    elif args.notify_url:
+        curator.notify_article(article_url=args.notify_url, title=args.notify_title)
+    elif args.daily_auto:
         # 一日一回自動実行モード
         curator.run_daily_archive_post(count=args.count)
     else:

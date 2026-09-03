@@ -53,6 +53,8 @@ jobs:
           WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           MGS_AFFILIATE_ID: ${{ secrets.MGS_AFFILIATE_ID }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          YAHOO_PASSWORD: ${{ secrets.YAHOO_PASSWORD }}
         run: |
           COUNT="${{ github.event.inputs.count }}"
           if [ -z "$COUNT" ]; then

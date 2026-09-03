@@ -464,19 +464,20 @@ def generate_fortune_article_html(actress_name, chart, works):
     return html
 
 from curation_engine import CurationEngine, THEMES
+from sex_technique_engine import SexTechniqueEngine, CATEGORIES as SEX_TECH_CATEGORIES
 
 def main():
-    parser = argparse.ArgumentParser(description="Livedoor Blog 美女まとめ自動投稿スクリプト")
-    parser.add_argument("--mode", type=str, default="curation", choices=["curation", "legacy"], help="投稿モード (curation: 週2回まとめ特集, legacy: 従来ランキング)")
+    parser = argparse.ArgumentParser(description="Livedoor Blog 美女まとめ＆セックステクニック自動投稿スクリプト")
+    parser.add_argument("--mode", type=str, default="curation", choices=["curation", "legacy", "sex_tech", "ranking"], help="投稿モード (curation: 週2回まとめ特集, legacy: 従来ランキング, sex_tech: セックステクニック解説, ranking: 毎日お昼の売れ筋ランキングTOP10)")
     parser.add_argument("--theme", type=str, default=None, help="まとめ特集テーマ (cosplay, bishojo, legs, mature, busty, ranking)")
     parser.add_argument("--count", type=int, default=20, help="まとめ記事に掲載する人数/件数 (デフォルト: 20)")
     parser.add_argument("--dry-run", action="store_true", help="ブログに投稿せず生成テストのみ行う")
     
-    # レガシー用オプション
+    # レガシーおよびセックステクニック用オプション
     parser.add_argument("--keyword", type=str, default=None, help="手動検索キーワード")
     parser.add_argument("--service", type=str, default="digital", help="手動指定時のサービス")
     parser.add_argument("--floor", type=str, default="videoa", help="手動指定時のフロア")
-    parser.add_argument("--category", type=str, default=None, help="手動時のカテゴリ名")
+    parser.add_argument("--category", type=str, default=None, help="手動時のカテゴリ名 (sex_tech時は foreplay, positions, zones, oral, mind, goods など)")
     parser.add_argument("--hits", type=int, default=10, help="取得件数")
     args = parser.parse_args()
 
@@ -486,7 +487,41 @@ def main():
     post_tags = []
 
     try:
-        if args.mode == "curation" and not args.keyword:
+        if args.mode == "ranking":
+            # === 【毎日お昼12時用】12大フェチジャンル日替わり売れ筋ランキングTOP10 ===
+            today = datetime.datetime.now()
+            day_of_year = today.timetuple().tm_yday
+            rot_item = RANKING_ROTATION[day_of_year % len(RANKING_ROTATION)]
+            target_category = args.category or rot_item["category"]
+            target_keyword = args.keyword or rot_item["keyword"]
+            service = rot_item.get("service", "digital")
+            floor = rot_item.get("floor", "videoa")
+
+            print(f"【日替わりランキング自動実行】 ジャンル: {target_category} (キーワード: {target_keyword})")
+            dmm = DMMClient()
+            f_items = dmm.get_top_fanza_works(service=service, floor=floor, hits=args.hits, keyword=target_keyword)
+            m_items = MGSClient().search_works(target_keyword, hits=args.hits // 2)
+            combined = []
+            for i in range(max(len(f_items), len(m_items))):
+                if i < len(f_items): f_items[i]["source"]="FANZA"; combined.append(f_items[i])
+                if i < len(m_items): m_items[i]["source"]="MGS"; combined.append(m_items[i])
+            top_items = combined[:args.hits]
+            if top_items:
+                article_html = generate_html_article(top_items, target_category)
+                date_str = today.strftime("%Y/%m/%d")
+                title = f"【{date_str}】FANZA＆MGS混合！【{target_category}】売れ筋ランキング TOP{len(top_items)}"
+                post_tags = [target_category, "ランキング", "FANZA", "MGS"]
+
+        elif args.mode == "sex_tech":
+            # === 【新機能】pan-pan.co風 セックステクニック自動生成モード ===
+            engine = SexTechniqueEngine()
+            selected_cat = args.category if args.category in SEX_TECH_CATEGORIES else None
+            title, article_html, target_category, post_tags = engine.generate_article_content(
+                cat_key=selected_cat or list(SEX_TECH_CATEGORIES.keys())[0],
+                topic_info=SEX_TECH_CATEGORIES[selected_cat or list(SEX_TECH_CATEGORIES.keys())[0]]["topics"][0]
+            )
+
+        elif args.mode == "curation" and not args.keyword:
             # === 【新機能】週2回・20〜30人まとめ特集モード ===
             jst = datetime.timezone(datetime.timedelta(hours=9))
             now_jst = datetime.datetime.now(jst)
@@ -544,6 +579,18 @@ def main():
                 res = livedoor.post_article(title, article_html, categories=post_tags, publish=True)
                 if res:
                     print(f"ブログ投稿成功！: {title}")
+                    try:
+                        import xml.etree.ElementTree as ET
+                        from notifier import ArticleNotifier
+                        root = ET.fromstring(res)
+                        ns = {'atom': 'http://www.w3.org/2005/Atom'}
+                        alt_links = [l.attrib.get('href') for l in root.findall('atom:link', ns) if l.attrib.get('rel') == 'alternate']
+                        art_url = alt_links[0] if alt_links else f"https://ranking000.livedoor.blog/"
+                        
+                        notifier = ArticleNotifier()
+                        notifier.send_notification_email(title=title, article_url=art_url, category=target_category)
+                    except Exception as notify_err:
+                        print(f"通知処理エラー: {notify_err}")
                 else:
                     print(f"ブログ投稿失敗。")
         else:

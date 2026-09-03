@@ -38,6 +38,8 @@ jobs:
           LIVEDOOR_API_KEY: ${{ secrets.LIVEDOOR_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           MGS_AFFILIATE_ID: ${{ secrets.MGS_AFFILIATE_ID }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          YAHOO_PASSWORD: ${{ secrets.YAHOO_PASSWORD }}
         run: |
           KEYWORD="${{ github.event.inputs.keyword }}"
           if [ -n "$KEYWORD" ]; then

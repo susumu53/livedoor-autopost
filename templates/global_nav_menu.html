@@ -1,0 +1,161 @@
+<!-- ========================================================
+     【ブログタイトル直下用】グローバルナビゲーションメニュー
+     ＋ トップ画面アイキャッチ画像（サムネイル）自動表示機能付き
+     ======================================================== -->
+<nav id="livedoor-global-nav" class="ld-gnav-container">
+  <div class="ld-gnav-inner">
+    <a href="https://ranking000.livedoor.blog/archives/cat_263028.html" class="ld-gnav-link">
+      <span class="ld-gnav-icon">💋</span>
+      <span class="ld-gnav-text">SEX大全</span>
+    </a>
+    <a href="https://ranking000.livedoor.blog/archives/cat_263050.html" class="ld-gnav-link">
+      <span class="ld-gnav-icon">💖</span>
+      <span class="ld-gnav-text">前戯・愛撫</span>
+    </a>
+    <a href="https://ranking000.livedoor.blog/archives/cat_263051.html" class="ld-gnav-link">
+      <span class="ld-gnav-icon">🔥</span>
+      <span class="ld-gnav-text">体位・挿入</span>
+    </a>
+    <a href="https://ranking000.livedoor.blog/archives/cat_263027.html" class="ld-gnav-link">
+      <span class="ld-gnav-icon">🌊</span>
+      <span class="ld-gnav-text">性感帯・潮吹き</span>
+    </a>
+    <a href="https://ranking000.livedoor.blog/archives/cat_263052.html" class="ld-gnav-link">
+      <span class="ld-gnav-icon">👄</span>
+      <span class="ld-gnav-text">オーラル・口技</span>
+    </a>
+    <a href="https://ranking000.livedoor.blog/archives/cat_263054.html" class="ld-gnav-link">
+      <span class="ld-gnav-icon">💬</span>
+      <span class="ld-gnav-text">心理・会話</span>
+    </a>
+    <a href="https://ranking000.livedoor.blog/archives/cat_263055.html" class="ld-gnav-link">
+      <span class="ld-gnav-icon">🎁</span>
+      <span class="ld-gnav-text">グッズ</span>
+    </a>
+  </div>
+</nav>
+
+<style>
+/* グローバルナビゲーションのスタイル */
+.ld-gnav-container {
+  width: 100%;
+  background: linear-gradient(135deg, #1f1b2e 0%, #2a1f3d 100%);
+  border-top: 2px solid #ff4081;
+  border-bottom: 2px solid rgba(255, 64, 129, 0.3);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  margin-bottom: 25px;
+  position: relative;
+  z-index: 99;
+}
+
+.ld-gnav-inner {
+  max-width: 980px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* スクロールバーの非表示（スマホ時） */
+.ld-gnav-inner::-webkit-scrollbar {
+  display: none;
+}
+
+.ld-gnav-link {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 13px 14px;
+  color: #f0f0f0 !important;
+  text-decoration: none !important;
+  font-size: 14px;
+  font-weight: bold;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  border-bottom: 3px solid transparent;
+  flex-shrink: 0;
+}
+
+.ld-gnav-link:hover {
+  color: #ff80ab !important;
+  background: rgba(255, 255, 255, 0.08);
+  border-bottom: 3px solid #ff4081;
+}
+
+.ld-gnav-icon {
+  font-size: 16px;
+}
+
+/* スマホ表示対応 */
+@media (max-width: 768px) {
+  .ld-gnav-inner {
+    justify-content: flex-start;
+    padding: 0 5px;
+  }
+  .ld-gnav-link {
+    padding: 11px 12px;
+    font-size: 13px;
+    gap: 4px;
+  }
+  .ld-gnav-icon {
+    font-size: 14px;
+  }
+}
+
+/* トップ画面用 サムネイル枠スタイル */
+.photoEntry a:hover .custom-thumb img {
+  transform: scale(1.05);
+}
+.photoEntryBox {
+  overflow: hidden;
+  border-radius: 12px;
+}
+</style>
+
+<!-- トップ画面用：アイキャッチ画像自動ローダー -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  var entryLinks = document.querySelectorAll(".photoEntry a");
+  
+  entryLinks.forEach(function(link) {
+    var photoBox = link.querySelector(".photoEntryBox");
+    if (!photoBox) return;
+    if (photoBox.querySelector("img")) return;
+
+    var articleUrl = link.getAttribute("href");
+    if (!articleUrl) return;
+
+    fetch(articleUrl)
+      .then(function(res) { return res.text(); })
+      .then(function(html) {
+        var parser = new DOMParser();
+        var doc = parser.parseFromString(html, "text/html");
+        var targetImg = doc.querySelector(".st-eyecatch img") || 
+                        doc.querySelector(".main-image img") || 
+                        doc.querySelector(".article-body img");
+        
+        if (targetImg && targetImg.getAttribute("src")) {
+          var imgSrc = targetImg.getAttribute("src");
+          var imgContainer = document.createElement("div");
+          imgContainer.className = "photoEntryImg custom-thumb";
+          imgContainer.style.cssText = "width:100%; height:200px; overflow:hidden; border-radius:10px 10px 0 0; background:#1a1a2e; margin-bottom:12px;";
+          
+          var imgElem = document.createElement("img");
+          imgElem.src = imgSrc;
+          imgElem.alt = "サムネイル";
+          imgElem.style.cssText = "width:100%; height:100%; object-fit:cover; display:block; transition:transform 0.3s ease;";
+          
+          imgContainer.appendChild(imgElem);
+          photoBox.insertBefore(imgContainer, photoBox.firstChild);
+        }
+      })
+      .catch(function(err) {
+        console.error("サムネイル取得エラー:", err);
+      });
+  });
+});
+</script>

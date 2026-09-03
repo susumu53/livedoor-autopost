@@ -1,0 +1,69 @@
+<!-- ========================================================
+     【トップ画面用】アイキャッチ画像（サムネイル）自動表示スクリプト
+     外部画像（DMM/FANZA画像など）も自動でサムネイル化してトップ画面に表示します。
+     ライブドアブログ管理画面の：
+     「ブログ設定」>「デザイン/PC」>「カスタマイズ」>「トップページ」
+     の一番下（</body>の直前）に貼り付けてください。
+     ======================================================== -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // トップページの各記事カードを探索
+  var entryLinks = document.querySelectorAll(".photoEntry a");
+  
+  entryLinks.forEach(function(link) {
+    var photoBox = link.querySelector(".photoEntryBox");
+    if (!photoBox) return;
+
+    // すでに画像が表示されているか確認
+    var existingImg = photoBox.querySelector("img");
+    if (existingImg) return;
+
+    var articleUrl = link.getAttribute("href");
+    if (!articleUrl) return;
+
+    // 記事ページからアイキャッチ画像を取得してトップに表示
+    fetch(articleUrl)
+      .then(function(res) { return res.text(); })
+      .then(function(html) {
+        var parser = new DOMParser();
+        var doc = parser.parseFromString(html, "text/html");
+        
+        // 記事内のアイキャッチ画像または最初の画像を探す
+        var targetImg = doc.querySelector(".st-eyecatch img") || 
+                        doc.querySelector(".main-image img") || 
+                        doc.querySelector(".article-body img");
+        
+        if (targetImg && targetImg.getAttribute("src")) {
+          var imgSrc = targetImg.getAttribute("src");
+          var imgContainer = document.createElement("div");
+          imgContainer.className = "photoEntryImg custom-thumb";
+          imgContainer.style.cssText = "width:100%; height:200px; overflow:hidden; border-radius:10px 10px 0 0; background:#1a1a2e; margin-bottom:12px;";
+          
+          var imgElem = document.createElement("img");
+          imgElem.src = imgSrc;
+          imgElem.alt = "サムネイル";
+          imgElem.style.cssText = "width:100%; height:100%; object-fit:cover; display:block; transition:transform 0.3s ease;";
+          
+          imgContainer.appendChild(imgElem);
+          
+          // タイトルの手前に画像を挿入
+          photoBox.insertBefore(imgContainer, photoBox.firstChild);
+        }
+      })
+      .catch(function(err) {
+        console.error("サムネイル取得エラー:", err);
+      });
+  });
+});
+</script>
+
+<style>
+/* サムネイル画像のホバーアニメーション */
+.photoEntry a:hover .custom-thumb img {
+  transform: scale(1.05);
+}
+.photoEntryBox {
+  overflow: hidden;
+  border-radius: 12px;
+}
+</style>

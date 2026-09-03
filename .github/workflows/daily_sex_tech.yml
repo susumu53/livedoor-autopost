@@ -1,20 +1,21 @@
-name: Daily Archive Mega-Curation Auto Post
+name: Daily Sex Technique Auto Post
 permissions:
   contents: write
 
 on:
   schedule:
-    # 毎日 19:00 JST (UTC 10:00) に一日一回実行
-    - cron: '0 10 * * *'
+    # 毎日 21:00 JST (UTC 12:00) に一日一回自動投稿
+    # （アクセスが最も集中する夜のゴールデンタイムに投稿）
+    - cron: '0 12 * * *'
   workflow_dispatch:
     inputs:
-      count:
-        description: '1記事に掲載する人数 (デフォルト: 30)'
+      category:
+        description: '投稿したいカテゴリー (foreplay, positions, zones, oral, mind, goods / 空欄で日替わり自動選択)'
         required: false
-        default: '30'
+        default: ''
 
 jobs:
-  post-daily-archive:
+  post-daily-sex-tech:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -29,7 +30,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Daily Archive Post Script
+      - name: Run Sex Technique Auto Post Script
         env:
           DMM_API_ID: ${{ secrets.DMM_API_ID }}
           DMM_AFFILIATE_ID: ${{ secrets.DMM_AFFILIATE_ID }}
@@ -41,17 +42,9 @@ jobs:
           YAHOO_PASSWORD: ${{ secrets.YAHOO_PASSWORD }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
         run: |
-          COUNT="${{ github.event.inputs.count }}"
-          if [ -z "$COUNT" ]; then
-            COUNT="30"
+          CAT="${{ github.event.inputs.category }}"
+          if [ -n "$CAT" ]; then
+            python sex_technique_engine.py --category "$CAT"
+          else
+            python sex_technique_engine.py
           fi
-          python archive_curator.py --daily-auto --count "$COUNT"
-
-      - name: Commit and push progress
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add archive_progress.json || true
-          git commit -m "Update archive curation progress [skip ci]" || echo "No changes to commit"
-          git pull --rebase origin master || true
-          git push || true

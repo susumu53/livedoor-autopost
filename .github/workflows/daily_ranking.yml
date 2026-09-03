@@ -1,20 +1,21 @@
-name: Daily Archive Mega-Curation Auto Post
+name: Daily Ranking Top 10 Auto Post
 permissions:
   contents: write
 
 on:
   schedule:
-    # 毎日 19:00 JST (UTC 10:00) に一日一回実行
-    - cron: '0 10 * * *'
+    # 毎日 12:00 JST (UTC 03:00) に一日一回自動投稿
+    # （お昼休みのアクセスピークに合わせて投稿）
+    - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
-      count:
-        description: '1記事に掲載する人数 (デフォルト: 30)'
+      category:
+        description: '特定ジャンル指定（空欄で12大フェチジャンル日替わり自動選定）'
         required: false
-        default: '30'
+        default: ''
 
 jobs:
-  post-daily-archive:
+  post-daily-ranking:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -29,7 +30,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Daily Archive Post Script
+      - name: Run Daily Ranking Script
         env:
           DMM_API_ID: ${{ secrets.DMM_API_ID }}
           DMM_AFFILIATE_ID: ${{ secrets.DMM_AFFILIATE_ID }}
@@ -41,17 +42,9 @@ jobs:
           YAHOO_PASSWORD: ${{ secrets.YAHOO_PASSWORD }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
         run: |
-          COUNT="${{ github.event.inputs.count }}"
-          if [ -z "$COUNT" ]; then
-            COUNT="30"
+          CAT="${{ github.event.inputs.category }}"
+          if [ -n "$CAT" ]; then
+            python main.py --mode ranking --category "$CAT"
+          else
+            python main.py --mode ranking
           fi
-          python archive_curator.py --daily-auto --count "$COUNT"
-
-      - name: Commit and push progress
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add archive_progress.json || true
-          git commit -m "Update archive curation progress [skip ci]" || echo "No changes to commit"
-          git pull --rebase origin master || true
-          git push || true
