@@ -507,6 +507,16 @@ def main():
                 if i < len(m_items): m_items[i]["source"]="MGS"; combined.append(m_items[i])
             top_items = combined[:args.hits]
             if top_items:
+                # 1位の作品画像をライブドアにアップロードしてOGP画像に自動設定
+                if not args.dry_run and top_items[0].get("imageURL", {}).get("large"):
+                    try:
+                        livedoor = LivedoorClient()
+                        uploaded_img = livedoor.upload_image(top_items[0]["imageURL"]["large"])
+                        if uploaded_img:
+                            top_items[0]["imageURL"]["large"] = uploaded_img
+                    except Exception as img_err:
+                        print(f"[ランキング画像アップロード例外] {img_err}")
+
                 article_html = generate_html_article(top_items, target_category)
                 date_str = today.strftime("%Y/%m/%d")
                 title = f"【{date_str}】FANZA＆MGS混合！【{target_category}】売れ筋ランキング TOP{len(top_items)}"

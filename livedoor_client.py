@@ -73,6 +73,56 @@ class LivedoorClient:
             print(f"エラーが発生しました: {e}")
             return None
 
+    def upload_image(self, image_source, content_type="image/jpeg"):
+        """
+        画像をライブドアブログにアップロードし、livedoor.blogimg.jp の画像URLを返す。
+        image_source: 画像URL(str) または バイナリデータ(bytes)
+        アップロード成功時はライブドア上の画像URL、失敗時は元のURL/データを返す。
+        """
+        image_endpoint = f"https://livedoor.blogcms.jp/atompub/{self.blog_id}/image"
+        try:
+            image_data = None
+            if isinstance(image_source, str) and (image_source.startswith("http://") or image_source.startswith("https://")):
+                res = requests.get(image_source, timeout=15)
+                if res.status_code == 200:
+                    image_data = res.content
+                    ct = res.headers.get("Content-Type", "")
+                    if "png" in ct:
+                        content_type = "image/png"
+                    elif "gif" in ct:
+                        content_type = "image/gif"
+                    elif "webp" in ct:
+                        content_type = "image/webp"
+                else:
+                    print(f"[画像DL失敗] ステータス: {res.status_code}")
+                    return image_source
+            elif isinstance(image_source, (bytes, bytearray)):
+                image_data = image_source
+            else:
+                return image_source
+
+            headers = {"Content-Type": content_type}
+            resp = requests.post(
+                image_endpoint,
+                auth=HTTPBasicAuth(self.livedoor_id, self.api_key),
+                data=image_data,
+                headers=headers,
+                timeout=25
+            )
+            if resp.status_code in [200, 201]:
+                import xml.etree.ElementTree as ET
+                root = ET.fromstring(resp.text)
+                for elem in root.iter():
+                    if elem.tag.endswith("content") and "src" in elem.attrib:
+                        uploaded_url = elem.attrib["src"]
+                        print(f"[画像アップロード成功] {uploaded_url}")
+                        return uploaded_url
+            print(f"[画像アップロード失敗] ステータス: {resp.status_code}")
+        except Exception as e:
+            print(f"[画像アップロードエラー] {e}")
+
+        return image_source
+
 if __name__ == "__main__":
     # テスト動作確認用
     try:

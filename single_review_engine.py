@@ -21,6 +21,50 @@ class SingleReviewEngine:
         self.model_name = "gemini-3.6-flash"
         self.dmm = DMMClient()
 
+    def upload_image(self, image_source, content_type="image/jpeg"):
+        """画像をライブドアブログにアップロードし、livedoor.blogimg.jpの画像URLを返す（OGP・見出し画像用）"""
+        image_endpoint = f"https://livedoor.blogcms.jp/atompub/{self.blog_id}/image"
+        try:
+            image_data = None
+            if isinstance(image_source, str) and (image_source.startswith("http://") or image_source.startswith("https://")):
+                res = requests.get(image_source, timeout=15)
+                if res.status_code == 200:
+                    image_data = res.content
+                    ct = res.headers.get("Content-Type", "")
+                    if "png" in ct:
+                        content_type = "image/png"
+                    elif "gif" in ct:
+                        content_type = "image/gif"
+                    elif "webp" in ct:
+                        content_type = "image/webp"
+                else:
+                    return image_source
+            elif isinstance(image_source, (bytes, bytearray)):
+                image_data = image_source
+            else:
+                return image_source
+
+            headers = {"Content-Type": content_type}
+            resp = requests.post(
+                image_endpoint,
+                auth=HTTPBasicAuth(self.livedoor_id, self.api_key),
+                data=image_data,
+                headers=headers,
+                timeout=25
+            )
+            if resp.status_code in [200, 201]:
+                import xml.etree.ElementTree as ET
+                root = ET.fromstring(resp.text)
+                for elem in root.iter():
+                    if elem.tag.endswith("content") and "src" in elem.attrib:
+                        uploaded_url = elem.attrib["src"]
+                        print(f"[アイキャッチ画像アップロード成功] {uploaded_url}")
+                        return uploaded_url
+            print(f"[アイキャッチ画像アップロード失敗] ステータス: {resp.status_code}")
+        except Exception as e:
+            print(f"[画像アップロードエラー] {e}")
+        return image_source
+
     def get_trending_work(self, keyword=None, service="digital", floor="videoa"):
         """おすすめの注目作を1本取得する"""
         items = self.dmm.get_top_fanza_works(service=service, floor=floor, hits=15, keyword=keyword)
@@ -488,6 +532,13 @@ class SingleReviewEngine:
             return None
 
         work = self.extract_work_details(work_raw)
+
+        # アイキャッチ画像をライブドアにアップロード（OGP・X Card用）
+        if work.get('image_url'):
+            uploaded_img = self.upload_image(work['image_url'])
+            if uploaded_img:
+                work['image_url'] = uploaded_img
+
         title, html_content, category, tags = self.generate_review_article_html(work)
 
         endpoint = f"https://livedoor.blogcms.jp/atompub/{self.blog_id}/article"
