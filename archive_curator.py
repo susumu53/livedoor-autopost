@@ -537,6 +537,12 @@ class ArchiveCurator:
   </app:control>
 </entry>'''
 
+        # アイキャッチ画像の抽出
+        first_img = None
+        img_match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', html_content)
+        if img_match:
+            first_img = img_match.group(1)
+
         print(f"ライブドアブログ ({self.blog_id}) へ総集編記事を投稿中... [{title}]")
         response = requests.post(
             endpoint,
@@ -572,7 +578,8 @@ class ArchiveCurator:
                         article_url=art_url,
                         category="美女総集編",
                         blog_title="美女図鑑",
-                        hashtags=["美女図鑑", "美女", "グラビア", f"Vol{vol}"]
+                        hashtags=["美女図鑑", "美女", "グラビア", f"Vol{vol}"],
+                        image_url=first_img
                     )
                 except Exception as notify_err:
                     print(f"[通知送信エラー] {notify_err}")
@@ -593,9 +600,10 @@ class ArchiveCurator:
             except Exception as e:
                 print(f"進捗ファイルの読み込みエラー: {e}")
         return {
-            "current_vol": 2,
+            "current_vol": 3,
             "posted_history": [
-                {"vol": 1, "posted_at": "2026-09-03T07:43:00", "url": "https://bijozukan.doorblog.jp/archives/16986201.html"}
+                {"vol": 1, "posted_at": "2026-09-03T07:43:00", "url": "https://bijozukan.doorblog.jp/archives/16986201.html"},
+                {"vol": 2, "posted_at": "2026-09-03T14:15:26", "url": "https://bijozukan.doorblog.jp/archives/16996186.html"}
             ]
         }
 
@@ -608,11 +616,11 @@ class ArchiveCurator:
         except Exception as e:
             print(f"進捗ファイルの保存エラー: {e}")
 
-    def notify_article(self, article_url=None, title=None):
+    def notify_article(self, article_url=None, title=None, image_url=None):
         """指定した記事（または最新記事）のX投稿通知を ntfy に送信する"""
         from notifier import ArticleNotifier
-        if not article_url or not title:
-            print(f"最新記事をAtomPubから取得中 ({self.blog_id})...")
+        if not article_url or not title or not image_url:
+            print(f"記事情報をAtomPubから取得中 ({self.blog_id})...")
             page_url = f"https://livedoor.blogcms.jp/atompub/{self.blog_id}/article"
             try:
                 res = requests.get(page_url, auth=HTTPBasicAuth(self.livedoor_id, self.api_key), timeout=15)
@@ -620,27 +628,57 @@ class ArchiveCurator:
                     root = ET.fromstring(res.text)
                     ns = {'atom': 'http://www.w3.org/2005/Atom'}
                     entries = root.findall('atom:entry', ns)
-                    if entries:
-                        latest = entries[0]
-                        t_elem = latest.find('atom:title', ns)
+                    
+                    target_entry = None
+                    if article_url:
+                        for entry in entries:
+                            alt_links = [l.attrib.get('href') for l in entry.findall('atom:link', ns) if l.attrib.get('rel') == 'alternate']
+                            if alt_links and alt_links[0] == article_url:
+                                target_entry = entry
+                                break
+                    if not target_entry and entries:
+                        target_entry = entries[0]
+
+                    if target_entry:
+                        t_elem = target_entry.find('atom:title', ns)
                         title = title or (t_elem.text if t_elem is not None else "美女図鑑 新着記事")
-                        alt_links = [l.attrib.get('href') for l in latest.findall('atom:link', ns) if l.attrib.get('rel') == 'alternate']
+                        alt_links = [l.attrib.get('href') for l in target_entry.findall('atom:link', ns) if l.attrib.get('rel') == 'alternate']
                         article_url = article_url or (alt_links[0] if alt_links else "https://bijozukan.doorblog.jp/")
+
+                        if not image_url:
+                            c_elem = target_entry.find('atom:content', ns)
+                            if c_elem is not None and c_elem.text:
+                                img_m = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', c_elem.text)
+                                if img_m:
+                                    image_url = img_m.group(1)
             except Exception as e:
                 print(f"AtomPub取得エラー: {e}")
+
+        # フォールバック：公開ページからog:imageを取得
+        if article_url and not image_url:
+            try:
+                headers = {"User-Agent": "Mozilla/5.0"}
+                h_res = requests.get(article_url, headers=headers, timeout=10)
+                if h_res.status_code == 200:
+                    og_m = re.search(r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']', h_res.text)
+                    if og_m and "livedoor.png" not in og_m.group(1):
+                        image_url = og_m.group(1)
+            except Exception:
+                pass
 
         if not article_url:
             print("[エラー] 通知対象の記事URLが特定できませんでした。")
             return False
 
         notifier = ArticleNotifier()
-        print(f"[通知送信開始] {title} ({article_url})")
+        print(f"[通知送信開始] {title} ({article_url}) (画像: {image_url})")
         notifier.send_notification_email(
             title=title,
             article_url=article_url,
             category="美女総集編",
             blog_title="美女図鑑",
-            hashtags=["美女図鑑", "美女", "グラビア"]
+            hashtags=["美女図鑑", "美女", "グラビア"],
+            image_url=image_url
         )
         return True
 

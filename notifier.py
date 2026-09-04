@@ -48,7 +48,7 @@ class ArticleNotifier:
         tag_icons = ["sparkles", "camera"] if resolved_title == "美女図鑑" else ["sparkles", "memo"]
         return resolved_title, resolved_category, resolved_tags, tag_icons
 
-    def generate_intent_url(self, title, article_url, hashtags=None, blog_title=None):
+    def generate_intent_url(self, title, article_url, hashtags=None, blog_title=None, cache_bust=True):
         """X (Twitter) 公式 Web Intent 投稿URLを生成"""
         resolved_title, _, resolved_tags, _ = self._determine_blog_meta(
             article_url, blog_title=blog_title, hashtags=hashtags
@@ -57,13 +57,19 @@ class ArticleNotifier:
         tags_str = " ".join([f"#{t.replace(' ', '_')}" for t in resolved_tags])
         tweet_text = f"{title} - {resolved_title}\n\n{tags_str}"
         
+        # Xが過去のOGP（画像なし等）をキャッシュしているのを防ぐため、キャッシュクリア用パラメータを付与
+        post_url = article_url
+        if cache_bust and "archives" in article_url:
+            sep = "&" if "?" in article_url else "?"
+            post_url = f"{article_url}{sep}ogp=1"
+
         encoded_text = urllib.parse.quote(tweet_text)
-        encoded_url = urllib.parse.quote(article_url)
+        encoded_url = urllib.parse.quote(post_url)
         
         return f"https://x.com/intent/tweet?text={encoded_text}&url={encoded_url}", tweet_text
 
-    def send_push_notification(self, title, article_url, intent_url, category=None, blog_title=None):
-        """スマホ・ブラウザへ直接プッシュ通知を送信（ワンタップボタン付き）"""
+    def send_push_notification(self, title, article_url, intent_url, category=None, blog_title=None, image_url=None):
+        """スマホ・ブラウザへ直接プッシュ通知を送信（ワンタップボタン付き・アイキャッチ画像プレビュー対応）"""
         try:
             resolved_title, resolved_category, _, tag_icons = self._determine_blog_meta(
                 article_url, blog_title=blog_title, category=category
@@ -72,7 +78,7 @@ class ArticleNotifier:
             payload = {
                 "topic": self.push_topic,
                 "title": f"✨ 【{resolved_title}】新着記事公開！",
-                "message": f"【{resolved_category}】\n{title}\n\n記事URL: {article_url}\n\n下のボタンを押すと𝕏の投稿画面が開きます！",
+                "message": f"【{resolved_category}】\n{title}\n\n記事URL: {article_url}\n\n下のボタンを押すと𝕏の投稿画面が開き、アイキャッチ付きでポストできます！",
                 "priority": 4,
                 "tags": tag_icons,
                 "actions": [
@@ -88,6 +94,8 @@ class ArticleNotifier:
                     }
                 ]
             }
+            if image_url:
+                payload["attach"] = image_url
             
             res = requests.post(url, json=payload, timeout=10)
             if res.status_code == 200:
@@ -100,7 +108,7 @@ class ArticleNotifier:
             print(f"[プッシュ通知エラー] {e}")
         return False
 
-    def send_notification_email(self, title, article_url, category=None, blog_title=None, hashtags=None):
+    def send_notification_email(self, title, article_url, category=None, blog_title=None, hashtags=None, image_url=None):
         """通知メールおよびスマホプッシュ通知を送信"""
         resolved_title, resolved_category, resolved_tags, _ = self._determine_blog_meta(
             article_url, blog_title=blog_title, category=category, hashtags=hashtags
@@ -111,7 +119,7 @@ class ArticleNotifier:
 
         # 1. スマホ・ブラウザへ即時プッシュ通知（パスワード不要・確実）
         self.send_push_notification(
-            title, article_url, intent_url, category=resolved_category, blog_title=resolved_title
+            title, article_url, intent_url, category=resolved_category, blog_title=resolved_title, image_url=image_url
         )
 
         # 2. ローカルHTMLプレビュー保存
