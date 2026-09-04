@@ -1,8 +1,11 @@
 <!-- ========================================================
-     【ブログタイトル直下用】グローバルナビゲーションメニュー
+     【ブログタイトル直下用】グローバルナビゲーションメニュー (2段構成)
+     上段：セックステクニック6項目 (＋SEX大全)
+     下段：新設特集 (作品深掘りレビュー / 現代アートとしてのAV)
      ＋ トップ画面アイキャッチ画像（サムネイル）自動表示機能付き
      ======================================================== -->
 <nav id="livedoor-global-nav" class="ld-gnav-container">
+  <!-- 上段: 既存メニュー -->
   <div class="ld-gnav-inner">
     <a href="https://ranking000.livedoor.blog/archives/cat_263028.html" class="ld-gnav-link">
       <span class="ld-gnav-icon">💋</span>
@@ -33,6 +36,23 @@
       <span class="ld-gnav-text">グッズ</span>
     </a>
   </div>
+
+  <!-- 下段: 新設 2項目 (作品深掘りレビュー & 現代アートとしてのAV) -->
+  <div class="ld-gnav-subbar">
+    <div class="ld-gnav-subbar-inner">
+      <span class="ld-gnav-subbar-label">FEATURED</span>
+      <a href="https://ranking000.livedoor.blog/archives/cat_263268.html" class="ld-gnav-sublink ld-gnav-sublink-review">
+        <span class="ld-gnav-subicon">🎬</span>
+        <span class="ld-gnav-subtext">作品深掘りレビュー</span>
+        <span class="ld-gnav-pill pill-review">注目</span>
+      </a>
+      <a href="https://ranking000.livedoor.blog/archives/cat_263487.html" class="ld-gnav-sublink ld-gnav-sublink-art">
+        <span class="ld-gnav-subicon">🎨</span>
+        <span class="ld-gnav-subtext">現代アートとしてのAV</span>
+        <span class="ld-gnav-pill pill-art">NEW</span>
+      </a>
+    </div>
+  </div>
 </nav>
 
 <style>
@@ -42,12 +62,13 @@
   background: linear-gradient(135deg, #1f1b2e 0%, #2a1f3d 100%);
   border-top: 2px solid #ff4081;
   border-bottom: 2px solid rgba(255, 64, 129, 0.3);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
   margin-bottom: 25px;
   position: relative;
   z-index: 99;
 }
 
+/* 上段メニュー */
 .ld-gnav-inner {
   max-width: 980px;
   margin: 0 auto;
@@ -59,7 +80,6 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* スクロールバーの非表示（スマホ時） */
 .ld-gnav-inner::-webkit-scrollbar {
   display: none;
 }
@@ -69,7 +89,7 @@
   flex-direction: row;
   align-items: center;
   gap: 6px;
-  padding: 13px 14px;
+  padding: 12px 14px;
   color: #f0f0f0 !important;
   text-decoration: none !important;
   font-size: 14px;
@@ -90,6 +110,94 @@
   font-size: 16px;
 }
 
+/* 下段メニュー（新設特集バー） */
+.ld-gnav-subbar {
+  background: rgba(17, 13, 26, 0.85);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 8px 10px;
+  backdrop-filter: blur(8px);
+}
+
+.ld-gnav-subbar-inner {
+  max-width: 980px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ld-gnav-subbar-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: #ff80ab;
+  background: rgba(255, 64, 129, 0.15);
+  border: 1px solid rgba(255, 64, 129, 0.4);
+  padding: 2px 7px;
+  border-radius: 8px;
+  letter-spacing: 0.8px;
+}
+
+.ld-gnav-sublink {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 16px;
+  border-radius: 20px;
+  font-size: 13.5px;
+  font-weight: 700;
+  text-decoration: none !important;
+  color: #ffffff !important;
+  transition: all 0.25s ease;
+}
+
+.ld-gnav-sublink-review {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.2) 0%, rgba(147, 51, 234, 0.25) 100%);
+  border: 1px solid rgba(236, 72, 153, 0.45);
+}
+
+.ld-gnav-sublink-review:hover {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.4) 0%, rgba(147, 51, 234, 0.45) 100%);
+  border-color: #ff80ab;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(236, 72, 153, 0.35);
+}
+
+.ld-gnav-sublink-art {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.45);
+}
+
+.ld-gnav-sublink-art:hover {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.4) 0%, rgba(236, 72, 153, 0.4) 100%);
+  border-color: #a5b4fc;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35);
+}
+
+.ld-gnav-subicon {
+  font-size: 15px;
+}
+
+.ld-gnav-pill {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+.pill-review {
+  background: #ff4081;
+  color: #fff;
+}
+
+.pill-art {
+  background: #6366f1;
+  color: #fff;
+}
+
 /* スマホ表示対応 */
 @media (max-width: 768px) {
   .ld-gnav-inner {
@@ -97,12 +205,26 @@
     padding: 0 5px;
   }
   .ld-gnav-link {
-    padding: 11px 12px;
+    padding: 10px 11px;
     font-size: 13px;
     gap: 4px;
   }
   .ld-gnav-icon {
     font-size: 14px;
+  }
+  .ld-gnav-subbar-inner {
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .ld-gnav-subbar-label {
+    display: none;
+  }
+  .ld-gnav-sublink {
+    flex: 1;
+    justify-content: center;
+    padding: 6px 8px;
+    font-size: 12px;
+    gap: 4px;
   }
 }
 

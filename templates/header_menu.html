@@ -97,6 +97,36 @@
   box-shadow: 0 4px 15px rgba(255, 64, 129, 0.2);
 }
 
+.st-nav-subgrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.15);
+}
+
+.st-nav-featured {
+  background: linear-gradient(135deg, rgba(255, 64, 129, 0.15) 0%, rgba(138, 43, 226, 0.2) 100%);
+  border: 1px solid rgba(255, 64, 129, 0.35);
+}
+
+.st-nav-featured:hover {
+  background: linear-gradient(135deg, rgba(255, 64, 129, 0.35) 0%, rgba(138, 43, 226, 0.4) 100%);
+  border-color: #ff80ab;
+}
+
+.st-nav-badge-sub {
+  font-size: 10px;
+  font-weight: 700;
+  background: #ff4081;
+  color: #ffffff;
+  padding: 1px 6px;
+  border-radius: 8px;
+  margin-left: auto;
+  letter-spacing: 0.5px;
+}
+
 .st-nav-icon {
   font-size: 16px;
   display: flex;
@@ -121,10 +151,11 @@
     <div class="st-nav-header">
       <div class="st-nav-title">
         <span>💋</span>
-        <span>SEXテクニック大全 — CATEGORY MENU</span>
+        <span>大人の性教育＆カルチャー — CATEGORY MENU</span>
       </div>
       <a href="https://ranking000.livedoor.blog/archives/cat_263028.html" class="st-nav-badge" style="text-decoration:none;">一覧を見る &gt;</a>
     </div>
+    <!-- 既存の6項目 -->
     <div class="st-nav-grid">
       <a href="https://ranking000.livedoor.blog/archives/cat_263050.html" class="st-nav-item">
         <span class="st-nav-icon">💖</span>
@@ -149,6 +180,19 @@
       <a href="https://ranking000.livedoor.blog/archives/cat_263055.html" class="st-nav-item">
         <span class="st-nav-icon">🎁</span>
         <span class="st-nav-label">グッズ・サポート</span>
+      </a>
+    </div>
+    <!-- 下段に新設の2項目 -->
+    <div class="st-nav-subgrid">
+      <a href="https://ranking000.livedoor.blog/archives/cat_263268.html" class="st-nav-item st-nav-featured">
+        <span class="st-nav-icon">🎬</span>
+        <span class="st-nav-label">作品深掘りレビュー</span>
+        <span class="st-nav-badge-sub">注目</span>
+      </a>
+      <a href="https://ranking000.livedoor.blog/archives/cat_263487.html" class="st-nav-item st-nav-featured">
+        <span class="st-nav-icon">🎨</span>
+        <span class="st-nav-label">現代アートとしてのAV</span>
+        <span class="st-nav-badge-sub">NEW</span>
       </a>
     </div>
   </div>
