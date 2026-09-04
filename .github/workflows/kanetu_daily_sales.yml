@@ -1,0 +1,56 @@
+name: Kanetu Daily Flash Sale Auto Post
+permissions:
+  contents: write
+
+on:
+  schedule:
+    # 毎日 21:30 JST (UTC 12:30) に自動投稿（日替わりセール終了直前の駆け込み需要を最大化）
+    - cron: '30 12 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'ドライラン（テスト実行: 投稿・通知を行わない場合は true）'
+        required: false
+        default: 'false'
+
+jobs:
+  post-kanetu-sale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Kanetu Sale Auto Post Engine
+        env:
+          DMM_API_ID: ${{ secrets.DMM_API_ID }}
+          DMM_AFFILIATE_ID: ${{ secrets.DMM_AFFILIATE_ID }}
+          LIVEDOOR_ID: ${{ secrets.LIVEDOOR_ID }}
+          LIVEDOOR_API_KEY: ${{ secrets.LIVEDOOR_API_KEY }}
+          KANETU_BLOG_ID: ranking000-ewh3rjkf
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          DRY_RUN="${{ github.event.inputs.dry_run }}"
+          if [ "$DRY_RUN" = "true" ]; then
+            python kanetu_sale_engine.py --dry-run
+          else
+            python kanetu_sale_engine.py
+          fi
+
+      - name: Commit and push sale history
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add kanetu_sale_history.json || true
+          git commit -m "Update kanetu sale history [skip ci]" || echo "No changes to commit"
+          git pull --rebase origin master || true
+          git push || true
