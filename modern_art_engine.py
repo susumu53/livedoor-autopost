@@ -75,8 +75,20 @@ LEGEND_ACTRESSES = [
         "sales_rank": "S1 年間売上ランキング第1位・FANZA年間アワード常連",
         "rating_score": "4.30★ (33件レビューで絶大な支持)",
         "phenomenon": "令和AV界の絶対的女王。圧倒的透明感と映像美で業界トップの売上を記録し続ける金字塔"
+    },
+    {
+        "name": "明日花キララ",
+        "era": "2000s-2010s",
+        "keyword": "明日花キララ",
+        "cid": "ofje00176",  # 『明日花キララ ゴールドベスト』(サンプル10枚, 473件レビュー, 4.13★)
+        "concept": "圧倒的なゴージャス性とゼロ年代後半ギャルカルチャーの頂点に君臨したカリスマ",
+        "sales_rank": "S1 歴代年間売上第1位・セル＆レンタル通算最多記録クラス",
+        "rating_score": "4.13★ (驚異の473件レビュー・殿堂入り)",
+        "phenomenon": "AV界からファッション界・芸能界へ革命を起こした、2000年代後半以降の絶対的アイコン"
     }
 ]
+
+HISTORY_FILE = "modern_art_history.json"
 
 class ModernArtAVEngine:
     def __init__(self, blog_id=None):
@@ -132,7 +144,7 @@ class ModernArtAVEngine:
         return image_source
 
     def fetch_target_work(self, actress_name=None, keyword=None):
-        """指定した女優名または厳選リストから本物のAV名作を取得する（イメージビデオ・サンプルなし作品を完全除外）"""
+        """指定した女優名または厳選リストから本物のAV名作を取得する（未投稿作品を優先ローテーション）"""
         target_info = None
         if actress_name:
             for item in LEGEND_ACTRESSES:
@@ -150,8 +162,25 @@ class ModernArtAVEngine:
                     "phenomenon": "セル＆レンタル市場で絶大な支持を集めた大ヒット作"
                 }
         else:
-            # ランダムに選定
-            target_info = random.choice(LEGEND_ACTRESSES)
+            # 投稿履歴を読み込み、未投稿または最も過去の女優を自動選定（重複防止ローテーション）
+            posted_actresses = []
+            if os.path.exists(HISTORY_FILE):
+                try:
+                    with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                        hist = json.load(f)
+                        posted_actresses = [h.get("actress") for h in hist if h.get("actress")]
+                except Exception:
+                    posted_actresses = []
+
+            # 未投稿の女優を優先
+            unposted = [item for item in LEGEND_ACTRESSES if item["name"] not in posted_actresses]
+            if unposted:
+                target_info = unposted[0]
+                print(f"[未投稿ローテーション選定] {target_info['name']} を選定しました。")
+            else:
+                # 全員投稿済みの場合はランダム
+                target_info = random.choice(LEGEND_ACTRESSES)
+                print(f"[全巡回完了・再ローテーション] {target_info['name']} を選定しました。")
 
         print(f"[対象アーティスト/女優] {target_info['name']} ({target_info['concept']})")
 
@@ -1106,6 +1135,25 @@ class ModernArtAVEngine:
             print(f"[SUCCESS] 投稿成功！ ステータス: {res.status_code}")
             print(f"[公開URL] {art_url}")
 
+            # 投稿履歴の保存（重複防止ローテーション用）
+            try:
+                hist = []
+                if os.path.exists(HISTORY_FILE):
+                    with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                        hist = json.load(f)
+                hist.append({
+                    "actress": work["actress"],
+                    "cid": work.get("content_id", ""),
+                    "title": title,
+                    "url": art_url,
+                    "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
+                with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+                    json.dump(hist, f, ensure_ascii=False, indent=2)
+                print(f"[履歴更新] {HISTORY_FILE} に投稿履歴を記録しました。")
+            except Exception as e:
+                print(f"[履歴保存エラー] {e}")
+
             # ntfy への自動通知
             if publish:
                 try:
@@ -1131,10 +1179,12 @@ class ModernArtAVEngine:
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="【現代アートとしてのAV】記事生成・投稿スクリプト")
-    parser.add_argument("--actress", type=str, default=None, help="対象のAV女優名 (例: 吉沢明歩, 及川奈央, Rio, 三上悠亜 等 / 省略でランダム)")
+    parser.add_argument("--actress", type=str, default=None, help="対象のAV女優名 (例: 吉沢明歩, 及川奈央, 麻美ゆま, 三上悠亜 等 / 省略で自動ローテーション)")
+    parser.add_argument("--blog-id", type=str, default=None, help="投稿先ライブドアブログID (デフォルト: ranking000)")
     parser.add_argument("--dry-run", action="store_true", help="投稿せずHTMLプレビューのみ生成する")
     parser.add_argument("--draft", action="store_true", help="公開せず下書き保存する")
     args = parser.parse_args()
 
-    engine = ModernArtAVEngine()
+    engine = ModernArtAVEngine(blog_id=args.blog_id)
     engine.post_article(actress_name=args.actress, dry_run=args.dry_run, publish=not args.draft)
+

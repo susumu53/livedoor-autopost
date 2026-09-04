@@ -1,0 +1,57 @@
+name: Modern Art AV Review Auto Post
+permissions:
+  contents: write
+
+on:
+  schedule:
+    # 週2回: 毎週水曜日と日曜日の 21:00 JST (UTC 12:00) に自動投稿
+    - cron: '0 12 * * 3,0'
+  workflow_dispatch:
+    inputs:
+      actress:
+        description: '対象女優名（手動指定したい場合、空欄で自動未投稿ローテーション）'
+        required: false
+        default: ''
+
+jobs:
+  post-modern-art:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Modern Art Review Script
+        env:
+          DMM_API_ID: ${{ secrets.DMM_API_ID }}
+          DMM_AFFILIATE_ID: ${{ secrets.DMM_AFFILIATE_ID }}
+          LIVEDOOR_ID: ${{ secrets.LIVEDOOR_ID }}
+          LIVEDOOR_BLOG_ID: ${{ secrets.LIVEDOOR_BLOG_ID }}
+          LIVEDOOR_API_KEY: ${{ secrets.LIVEDOOR_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          YAHOO_PASSWORD: ${{ secrets.YAHOO_PASSWORD }}
+        run: |
+          ACTRESS="${{ github.event.inputs.actress }}"
+          if [ -n "$ACTRESS" ]; then
+            python modern_art_engine.py --actress "$ACTRESS" --blog-id ranking000
+          else
+            python modern_art_engine.py --blog-id ranking000
+          fi
+
+      - name: Commit and push progress
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add modern_art_history.json || true
+          git commit -m "Update modern art review history [skip ci]" || echo "No changes to commit"
+          git pull --rebase origin master || true
+          git push || true
