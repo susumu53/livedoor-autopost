@@ -183,11 +183,10 @@ class SexTechniqueEngine:
             raise ValueError("GEMINI_API_KEY環境変数が設定されていません。")
 
         candidate_models = [
-            "gemini-3.7-flash",
-            "gemini-3.5-flash",
-            "gemini-flash-latest",
             "gemini-3.6-flash",
-            "gemini-3.5-flash-lite"
+            "gemini-2.5-flash",
+            "gemini-1.5-flash",
+            "gemini-flash-latest"
         ]
 
         headers = {"Content-Type": "application/json"}
@@ -195,7 +194,7 @@ class SexTechniqueEngine:
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
                 "temperature": 0.7,
-                "maxOutputTokens": 4096
+                "maxOutputTokens": 8192
             }
         }
 
