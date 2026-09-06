@@ -46,6 +46,8 @@ jobs:
             COUNT="30"
           fi
           python archive_curator.py --daily-auto --count "$COUNT"
+          # 美女図鑑の個別記事などのアイキャッチ自動設定・同期
+          python bijozukan_eyecatch.py --limit 30
 
       - name: Commit and push progress
         run: |
