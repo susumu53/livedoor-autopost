@@ -3,9 +3,9 @@ permissions:
   contents: write
 
 on:
-  schedule:
-    # 毎日 21:30 JST (UTC 12:30) に自動投稿（日替わりセール終了直前の駆け込み需要を最大化）
-    - cron: '30 12 * * *'
+  # schedule:
+  #   # 毎日 21:30 JST (UTC 12:30) に自動投稿（日替わりセール終了直前の駆け込み需要を最大化）
+  #   - cron: '30 12 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
