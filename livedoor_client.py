@@ -9,7 +9,7 @@ load_dotenv()
 class LivedoorClient:
     def __init__(self, blog_id=None):
         self.livedoor_id = os.getenv("LIVEDOOR_ID")
-        self.blog_id = blog_id or os.getenv("KANETU_BLOG_ID") or os.getenv("LIVEDOOR_BLOG_ID")
+        self.blog_id = blog_id or os.getenv("LIVEDOOR_BLOG_ID") or "ranking000"
         self.api_key = os.getenv("LIVEDOOR_API_KEY")
         
         if not all([self.livedoor_id, self.blog_id, self.api_key]):

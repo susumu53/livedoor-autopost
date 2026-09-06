@@ -35,7 +35,7 @@ jobs:
           DMM_API_ID: ${{ secrets.DMM_API_ID }}
           DMM_AFFILIATE_ID: ${{ secrets.DMM_AFFILIATE_ID }}
           LIVEDOOR_ID: ${{ secrets.LIVEDOOR_ID }}
-          LIVEDOOR_BLOG_ID: ${{ secrets.LIVEDOOR_BLOG_ID }}
+          LIVEDOOR_BLOG_ID: ranking000
           LIVEDOOR_API_KEY: ${{ secrets.LIVEDOOR_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           MGS_AFFILIATE_ID: ${{ secrets.MGS_AFFILIATE_ID }}
@@ -44,7 +44,7 @@ jobs:
         run: |
           CAT="${{ github.event.inputs.category }}"
           if [ -n "$CAT" ]; then
-            python main.py --mode ranking --category "$CAT"
+            python main.py --mode ranking --blog-id ranking000 --category "$CAT"
           else
-            python main.py --mode ranking
+            python main.py --mode ranking --blog-id ranking000
           fi

@@ -479,6 +479,7 @@ def main():
     parser.add_argument("--floor", type=str, default="videoa", help="手動指定時のフロア")
     parser.add_argument("--category", type=str, default=None, help="手動時のカテゴリ名 (sex_tech時は foreplay, positions, zones, oral, mind, goods など)")
     parser.add_argument("--hits", type=int, default=10, help="取得件数")
+    parser.add_argument("--blog-id", type=str, default="ranking000", help="対象ブログID (デフォルト: ranking000)")
     args = parser.parse_args()
 
     title = None
@@ -510,7 +511,7 @@ def main():
                 # 1位の作品画像をライブドアにアップロードしてOGP画像に自動設定
                 if not args.dry_run and top_items[0].get("imageURL", {}).get("large"):
                     try:
-                        livedoor = LivedoorClient()
+                        livedoor = LivedoorClient(blog_id=args.blog_id)
                         uploaded_img = livedoor.upload_image(top_items[0]["imageURL"]["large"])
                         if uploaded_img:
                             top_items[0]["imageURL"]["large"] = uploaded_img
@@ -584,7 +585,7 @@ def main():
                 print(f"[DRY-RUN成功] タグ数: {len(post_tags)}")
                 print(f"[DRY-RUN成功] HTML文字数: {len(article_html)}")
             else:
-                livedoor = LivedoorClient()
+                livedoor = LivedoorClient(blog_id=args.blog_id)
                 print(f"ライブドアブログへ投稿中... [{title}]")
                 res = livedoor.post_article(title, article_html, categories=post_tags, publish=True)
                 if res:

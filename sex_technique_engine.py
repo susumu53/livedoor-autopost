@@ -152,8 +152,9 @@ CATEGORIES = {
 }
 
 class SexTechniqueEngine:
-    def __init__(self):
-        self.livedoor = LivedoorClient()
+    def __init__(self, blog_id="ranking000"):
+        self.blog_id = blog_id
+        self.livedoor = LivedoorClient(blog_id=self.blog_id)
         self.dmm = DMMClient()
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
         self.model_name = "gemini-3.6-flash"
@@ -493,7 +494,8 @@ if __name__ == "__main__":
     parser.add_argument("--category", type=str, default=None, choices=list(CATEGORIES.keys()), help="特定カテゴリ指定")
     parser.add_argument("--dry-run", action="store_true", help="ブログ投稿せずHTMLプレビューのみ生成")
     parser.add_argument("--draft", action="store_true", help="下書きとして投稿")
+    parser.add_argument("--blog-id", type=str, default="ranking000", help="対象ブログID (デフォルト: ranking000)")
     args = parser.parse_args()
 
-    engine = SexTechniqueEngine()
+    engine = SexTechniqueEngine(blog_id=args.blog_id)
     engine.run(category_key=args.category, dry_run=args.dry_run, publish=not args.draft)
