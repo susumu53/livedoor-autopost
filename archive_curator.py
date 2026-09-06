@@ -671,11 +671,15 @@ class ArchiveCurator:
             return False
 
         notifier = ArticleNotifier()
-        print(f"[通知送信開始] {title} ({article_url}) (画像: {image_url})")
+        try:
+            print(f"[通知送信開始] {title} ({article_url}) (画像: {image_url})")
+        except Exception:
+            print(f"[通知送信開始] {article_url}")
+        cat = "美女総集編" if "総集編" in (title or "") else "美女図鑑"
         notifier.send_notification_email(
             title=title,
             article_url=article_url,
-            category="美女総集編",
+            category=cat,
             blog_title="美女図鑑",
             hashtags=["美女図鑑", "美女", "グラビア"],
             image_url=image_url

@@ -13,7 +13,7 @@ class ArticleNotifier:
     def __init__(self):
         self.to_email = "garoa53@yahoo.co.jp"
         # スマホプッシュ通知用トピック（登録不要・完全無料）
-        self.push_topic = os.getenv("NTFY_TOPIC", "garoa-blog-post")
+        self.push_topic = os.getenv("NTFY_TOPIC") or "garoa-blog-post"
         
         # SMTP設定
         self.smtp_host = os.getenv("SMTP_HOST", "smtp.mail.yahoo.co.jp")
