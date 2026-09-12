@@ -18,7 +18,10 @@ try:
     from generate_article import BeautyManager
 except ImportError:
     BeautyManager = None
-from fortune_engine import FortuneEngine
+try:
+    from fortune_engine import FortuneEngine
+except ImportError:
+    FortuneEngine = None
 
 # 12種類のフェチカテゴリ・ローテーション設定
 RANKING_ROTATION = [

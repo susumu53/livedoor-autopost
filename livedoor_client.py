@@ -17,6 +17,16 @@ class LivedoorClient:
             
         self.endpoint = f"https://livedoor.blogcms.jp/atompub/{self.blog_id}/article"
 
+    def _truncate_title(self, title, max_bytes=240):
+        """ライブドアブログのAtomPubタイトル制限（最大255バイト）を超えないよう安全に切り詰める"""
+        if not title or len(title.encode('utf-8')) <= max_bytes:
+            return title
+        res = title
+        suffix = "..."
+        while len((res + suffix).encode('utf-8')) > max_bytes and len(res) > 0:
+            res = res[:-1]
+        return res + suffix
+
     def post_article(self, title, content, categories=None, publish=True):
         """
         ライブドアブログに記事を投稿する
@@ -29,15 +39,20 @@ class LivedoorClient:
         """
         draft_value = "no" if publish else "yes"
         
-        # XMLで許可されない文字のエスケープ
-        escaped_title = saxutils.escape(title)
+        # タイトル長（255バイト制限）対策
+        safe_title = self._truncate_title(title, max_bytes=240)
+        escaped_title = saxutils.escape(safe_title)
         
-        # AtomPub XMLの構築
+        # AtomPub XMLの構築（カテゴリ重複排除）
         category_tags = ""
         if categories:
+            seen_cats = set()
             for cat in categories:
-                escaped_cat = saxutils.escape(cat)
-                category_tags += f'<category term="{escaped_cat}" />\n'
+                cat_str = str(cat).strip()
+                if cat_str and cat_str not in seen_cats:
+                    seen_cats.add(cat_str)
+                    escaped_cat = saxutils.escape(cat_str)
+                    category_tags += f'<category term="{escaped_cat}" />\n'
                 
         xml_template = f'''<?xml version="1.0" encoding="utf-8"?>
 <entry xmlns="http://www.w3.org/2005/Atom"

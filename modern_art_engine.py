@@ -396,7 +396,15 @@ class ModernArtAVEngine:
 
     def generate_modern_art_html(self, work, art_data):
         """【現代アートとしてのAV】の美麗なHTML記事を生成する"""
-        title = f"【現代アートとしてのAV】『{work['title']}』批評解体――{work['actress']}が体現するゼロ年代ポップカルチャーと男のコンプレックス"
+        # ライブドアの255バイト制限対策：作品タイトルが長大すぎる場合はスマートに短縮
+        work_title = work['title']
+        if len(work_title.encode('utf-8')) > 110:
+            wt = work_title
+            while len(wt.encode('utf-8')) > 105:
+                wt = wt[:-1]
+            work_title = wt + "…"
+            
+        title = f"【現代アートとしてのAV】『{work_title}』批評解体――{work['actress']}が体現するゼロ年代ポップカルチャーと男のコンプレックス"
         category = "現代アートとしてのAV"
         tags = ["現代アートとしてのAV", work["actress"], "作品レビュー", "ゼロ年代カルチャー", "ポップアート", "文化批評"]
 
@@ -1088,11 +1096,22 @@ class ModernArtAVEngine:
 
         # AtomPubでライブドアブログへ投稿
         endpoint = f"https://livedoor.blogcms.jp/atompub/{self.blog_id}/article"
-        escaped_title = saxutils.escape(title)
+        
+        # タイトル長（255バイト制限）対策
+        safe_title = title
+        if len(safe_title.encode('utf-8')) > 240:
+            while len((safe_title + "...").encode('utf-8')) > 240 and len(safe_title) > 0:
+                safe_title = safe_title[:-1]
+            safe_title += "..."
+        escaped_title = saxutils.escape(safe_title)
 
         category_tags = ""
+        seen_tags = set()
         for tag in [category] + tags[:8]:
-            category_tags += f'<category term="{saxutils.escape(tag)}" />\n'
+            tag_str = str(tag).strip()
+            if tag_str and tag_str not in seen_tags:
+                seen_tags.add(tag_str)
+                category_tags += f'<category term="{saxutils.escape(tag_str)}" />\n'
 
         draft_val = "no" if publish else "yes"
         xml_payload = f'''<?xml version="1.0" encoding="utf-8"?>
@@ -1108,7 +1127,7 @@ class ModernArtAVEngine:
   </app:control>
 </entry>'''
 
-        print(f"ライブドアブログ ({self.blog_id}) へ【現代アートとしてのAV】記事を投稿中... [{title[:30]}...]")
+        print(f"ライブドアブログ ({self.blog_id}) へ【現代アートとしてのAV】記事を投稿中... [{safe_title[:30]}...]")
         res = requests.post(
             endpoint,
             auth=HTTPBasicAuth(self.livedoor_id, self.api_key),
@@ -1144,7 +1163,7 @@ class ModernArtAVEngine:
                 hist.append({
                     "actress": work["actress"],
                     "cid": work.get("content_id", ""),
-                    "title": title,
+                    "title": safe_title,
                     "url": art_url,
                     "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 })
@@ -1160,7 +1179,7 @@ class ModernArtAVEngine:
                     from notifier import ArticleNotifier
                     notifier = ArticleNotifier()
                     notifier.send_notification_email(
-                        title=title,
+                        title=safe_title,
                         article_url=art_url,
                         category="現代アートとしてのAV",
                         blog_title="大人の性教育",
@@ -1170,14 +1189,15 @@ class ModernArtAVEngine:
                 except Exception as notify_err:
                     print(f"[通知送信エラー] {notify_err}")
 
-            return title, art_url
+            return safe_title, art_url
         else:
             print(f"[FAILED] 投稿失敗: {res.status_code}")
             print(res.text)
-            return None, None
+            raise RuntimeError(f"ライブドアブログ投稿失敗: {res.status_code} - {res.text}")
 
 if __name__ == "__main__":
     import argparse
+    import sys
     parser = argparse.ArgumentParser(description="【現代アートとしてのAV】記事生成・投稿スクリプト")
     parser.add_argument("--actress", type=str, default=None, help="対象のAV女優名 (例: 吉沢明歩, 及川奈央, 麻美ゆま, 三上悠亜 等 / 省略で自動ローテーション)")
     parser.add_argument("--blog-id", type=str, default=None, help="投稿先ライブドアブログID (デフォルト: ranking000)")
@@ -1185,6 +1205,10 @@ if __name__ == "__main__":
     parser.add_argument("--draft", action="store_true", help="公開せず下書き保存する")
     args = parser.parse_args()
 
-    engine = ModernArtAVEngine(blog_id=args.blog_id)
-    engine.post_article(actress_name=args.actress, dry_run=args.dry_run, publish=not args.draft)
+    try:
+        engine = ModernArtAVEngine(blog_id=args.blog_id)
+        engine.post_article(actress_name=args.actress, dry_run=args.dry_run, publish=not args.draft)
+    except Exception as e:
+        print(f"[実行エラー] {e}")
+        sys.exit(1)
 

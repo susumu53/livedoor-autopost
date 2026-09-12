@@ -9,3 +9,7 @@ radar_chart.png
 *.db-journal
 *.db-shm
 *.db-wal
+scratch/
+fortune-bright/
+*.code-workspace
+
