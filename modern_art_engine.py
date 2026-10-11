@@ -20,7 +20,7 @@ LEGEND_ACTRESSES = [
         "name": "吉沢明歩",
         "era": "2000s",
         "keyword": "吉沢明歩",
-        "cid": "h_031swtd001",  # 伝説的代表作『妹と呼ばないで』(Alice Japan/Lip Sweet, サンプル20枚, 4.09★)
+        "cids": ["h_031swtd001", "swtd001", "ipx00234"],  # 伝説的代表作『妹と呼ばないで』等
         "concept": "王道美少女の脱構築とゼロ年代初頭の『禁断妹ブーム』の絶対的女王",
         "sales_rank": "2000年代アリスJAPAN・セル＆レンタル年間ランキング1位クラス",
         "rating_score": "4.09★ (FANZA名作殿堂入り・高評価)",
@@ -30,7 +30,7 @@ LEGEND_ACTRESSES = [
         "name": "及川奈央",
         "era": "2000s",
         "keyword": "及川奈央",
-        "cid": "5518id00008",  # 『及川奈央 HISTORY 16時間』(IdeaPocket, サンプル20枚, 4.60★)
+        "cids": ["5518id00008", "ipz00127"],  # 『及川奈央 HISTORY 16時間』等
         "concept": "お茶の間とアングラの境界線を破壊した2000年代初頭の社会的ポップ現象",
         "sales_rank": "2000年代初頭SOD/IdeaPocket 歴代年間売上殿堂入り記録",
         "rating_score": "4.60★ (圧倒的絶賛・高支持率)",
@@ -40,17 +40,77 @@ LEGEND_ACTRESSES = [
         "name": "麻美ゆま",
         "era": "2000s",
         "keyword": "麻美ゆま",
-        "cid": "dvaj00058",  # 『麻美ゆまデビュー10周年記念 皆さんお元気ですか？ゆまチンは元気です BEST3枚組12時間』(サンプル19枚, 4.69★, 138件レビュー)
+        "cids": ["dvaj00058", "sone00205"],  # 『麻美ゆまデビュー10周年記念 皆さんお元気ですか？ゆまチンは元気です BEST3枚組12時間』等
         "concept": "バラエティと大衆エンタメへ越境した生命力あふれる健康美と身体パフォーマンス",
         "sales_rank": "アリスJAPAN＆S1 歴代年間セールス上位・10周年記念12時間メガヒット",
         "rating_score": "4.69★ (138件の熱狂的絶賛レビュー)",
         "phenomenon": "圧倒的な健康美と生命力でバラエティ界へ越境し、恵比寿マスカッツ初代リーダーとしても時代を牽引した名作"
     },
     {
+        "name": "Rio",
+        "era": "2000s",
+        "keyword": "Rio 柚木ティナ",
+        "cids": ["sone00001", "sone00100", "dvdes00486"],
+        "concept": "『柚木ティナ』から『Rio』へ――ゼロ年代後半のハーフ美女旋風とポップアイコンの極致",
+        "sales_rank": "S1 年間売上ランキング圧倒的第1位・セル通算記録樹立",
+        "rating_score": "4.55★ (殿堂入りゴールドディスク)",
+        "phenomenon": "バラエティ番組やお茶の間でも社会現象となり、ゼロ年代後半のAV界の常識を塗り替えたハイパー美少女"
+    },
+    {
+        "name": "蒼井そら",
+        "era": "2000s",
+        "keyword": "蒼井そら",
+        "cids": ["sone00055", "mide00100"],
+        "concept": "ゼロ年代アリスJAPANを牽引し、東アジア全域で社会現象となったグローバルレジェンド",
+        "sales_rank": "アリスJAPAN 歴代年間セル＆レンタル通算1位",
+        "rating_score": "4.45★ (世界的大ヒット)",
+        "phenomenon": "日本国内のみならず中国・アジア圏で絶大な知名度を誇り、ゼロ年代カルチャーを世界へ拡散した立役者"
+    },
+    {
+        "name": "小澤マリア",
+        "era": "2000s",
+        "keyword": "小澤マリア",
+        "cids": ["sone00020", "sone00088"],
+        "concept": "エキゾチックな彫刻的美貌と過激な身体性の共鳴、ゼロ年代S1の革新性",
+        "sales_rank": "S1 初代看板女優・歴代セルランキング上位",
+        "rating_score": "4.30★ (圧倒的ビジュアルインパクト)",
+        "phenomenon": "東南アジア諸国でも絶大な人気を誇り、ハリウッド映画にも出演した国境なきポップアイコン"
+    },
+    {
+        "name": "明日花キララ",
+        "era": "2000s-2010s",
+        "keyword": "明日花キララ",
+        "cids": ["ofje00176", "snis00888", "snis00600"],  # 『明日花キララ ゴールドベスト』等
+        "concept": "圧倒的なゴージャス性とゼロ年代後半ギャルカルチャーの頂点に君臨したカリスマ",
+        "sales_rank": "S1 歴代年間売上第1位・セル＆レンタル通算最多記録クラス",
+        "rating_score": "4.13★ (驚異の473件レビュー・殿堂入り)",
+        "phenomenon": "AV界からファッション界・芸能界へ革命を起こした、2000年代後半以降の絶対的アイコン"
+    },
+    {
+        "name": "波多野結衣",
+        "era": "2010s",
+        "keyword": "波多野結衣",
+        "cids": ["midv00001", "ipx00100", "stars00100"],
+        "concept": "千年に一人の多作・献身と、台湾・アジア全域で神格化された親しみやすさのパラドックス",
+        "sales_rank": "通算出演本数・累計売上高で歴代最高峰の金字塔",
+        "rating_score": "4.50★ (ロングセラー殿堂入り)",
+        "phenomenon": "アジア圏での抜群の国民的知名度を誇り、どんな役柄にも全力で挑む現代AV界の至宝"
+    },
+    {
+        "name": "上原亜衣",
+        "era": "2010s",
+        "keyword": "上原亜衣",
+        "cids": ["snis00200", "snis00500", "ofje00250"],
+        "concept": "2010年代前半の絶対的トップ。過密スケジュールを駆け抜けた肉体の超絶エネルギー",
+        "sales_rank": "FANZA 年間売上ランキング3年連続1位クラス独占",
+        "rating_score": "4.65★ (圧倒的レビュー件数)",
+        "phenomenon": "引退時には日本中が惜しみ、その後YouTuber・起業家としても大成功を収めた平成後期の象徴"
+    },
+    {
         "name": "相沢みなみ",
         "era": "current",
         "keyword": "相沢みなみ",
-        "cid": "ipx00666",  # 『「終電ないならウチおいで」...』(サンプル12枚, 4.73★, 95件レビュー)
+        "cids": ["ipx00666", "ipx00450", "ipx00800"],  # 『「終電ないならウチおいで」...』等
         "concept": "感情と肉体が激しく交錯するシネマティックなドラマツルギーと背徳の美学",
         "sales_rank": "FANZA Adult Award 最優秀女優賞受賞作・IdeaPocket 年間売上第1位クラス",
         "rating_score": "4.73★ (95件レビューで驚異の支持率)",
@@ -60,31 +120,61 @@ LEGEND_ACTRESSES = [
         "name": "三上悠亜",
         "era": "current",
         "keyword": "三上悠亜",
-        "cid": "ofje00550",  # 『三上悠亜 最後のAV 全歴史96作品 完全コンプリート48時間BOX』(サンプル12枚, 3.84★, 45件レビュー)
+        "cids": ["sone00999", "ssni00500", "ssni00700"],  # コンプリートBOX以外の単体代表作へ分散
         "concept": "国民的アイドルから世界的インフルエンサーへ至る究極の自己プロデュースアート",
         "sales_rank": "S1 歴代年間売上ランキング第1位独占・圧倒的セールス記録",
-        "rating_score": "S1歴代売上殿堂入り (45件レビュー)",
+        "rating_score": "S1歴代売上殿堂入り (超メガヒット)",
         "phenomenon": "元国民的アイドルから世界的インフルエンサーへ至る、AV界の歴史を塗り替えた世界的メガヒット"
     },
     {
         "name": "河北彩花",
         "era": "current",
         "keyword": "河北彩花",
-        "cid": "snos00275",  # 『河北彩花の尊い美顔を心おきなく拝みたい。』(サンプル10枚, 4.30★, 33件レビュー)
+        "cids": ["snos00275", "ssis00300", "ssis00500"],  # 『河北彩花の尊い美顔を心おきなく拝みたい。』等
         "concept": "令和の最高峰アイコンが体現する圧倒的映像美と不可侵の神話性",
         "sales_rank": "S1 年間売上ランキング第1位・FANZA年間アワード常連",
-        "rating_score": "4.30★ (33件レビューで絶大な支持)",
+        "rating_score": "4.30★ (絶大な支持)",
         "phenomenon": "令和AV界の絶対的女王。圧倒的透明感と映像美で業界トップの売上を記録し続ける金字塔"
     },
     {
-        "name": "明日花キララ",
-        "era": "2000s-2010s",
-        "keyword": "明日花キララ",
-        "cid": "ofje00176",  # 『明日花キララ ゴールドベスト』(サンプル10枚, 473件レビュー, 4.13★)
-        "concept": "圧倒的なゴージャス性とゼロ年代後半ギャルカルチャーの頂点に君臨したカリスマ",
-        "sales_rank": "S1 歴代年間売上第1位・セル＆レンタル通算最多記録クラス",
-        "rating_score": "4.13★ (驚異の473件レビュー・殿堂入り)",
-        "phenomenon": "AV界からファッション界・芸能界へ革命を起こした、2000年代後半以降の絶対的アイコン"
+        "name": "石川澪",
+        "era": "current",
+        "keyword": "石川澪",
+        "cids": ["mida00100", "mide00800", "ipzz00200"],
+        "concept": "透明感とあどけなさの極致が生み出す、令和時代の新たなエロティシズムの原風景",
+        "sales_rank": "MOODYZ 年間新人賞・配信セルランキング首位独占",
+        "rating_score": "4.80★ (異次元の超高評価)",
+        "phenomenon": "令和のメンズエステ・イチャラブ作品を代表する圧倒的アイドル性で大ブレイク"
+    },
+    {
+        "name": "宮下玲奈",
+        "era": "current",
+        "keyword": "宮下玲奈",
+        "cids": ["mide00950", "ipzz00300", "mida00250"],
+        "concept": "ナチュラルな美貌と濃密なエロスが同居する、次世代のカリスマ女優",
+        "sales_rank": "MOODYZ専属・年間アワード最優秀候補",
+        "rating_score": "4.75★ (高評価多数)",
+        "phenomenon": "自然体の演技と官能的なリアクションで男女問わず爆発的人気を誇る令和の星"
+    },
+    {
+        "name": "葵つかさ",
+        "era": "2010s-current",
+        "keyword": "葵つかさ",
+        "cids": ["sone00400", "snis00900", "ssni00350"],
+        "concept": "洗練されたプロポーションと大人の妖艶さ。10年以上にわたりトップに君臨し続ける絶対的表現力",
+        "sales_rank": "S1 歴代看板女優・10年連続トップセールス",
+        "rating_score": "4.60★ (安定の殿堂入り)",
+        "phenomenon": "一般メディアやドラマ出演も多数、長きにわたり美の頂点であり続けるカリスマ"
+    },
+    {
+        "name": "小宵こなん",
+        "era": "current",
+        "keyword": "小宵こなん",
+        "cids": ["sone00888", "ssis00200", "ssis00450"],
+        "concept": "グラマラスな肉体と小悪魔的魅力の融合。SNS時代の視覚的快楽を体現する新世代アイコン",
+        "sales_rank": "S1 年間ランキング上位・発売即完売のメガヒット連発",
+        "rating_score": "4.70★ (圧倒的ファン熱狂)",
+        "phenomenon": "抜群のスタイルと視線で読者を射抜く、令和グラマラスの決定版"
     }
 ]
 
@@ -96,7 +186,7 @@ class ModernArtAVEngine:
         self.api_key = os.getenv("LIVEDOOR_API_KEY")
         self.blog_id = blog_id or os.getenv("LIVEDOOR_BLOG_ID", "ranking000")
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
-        self.model_name = "gemini-3.6-flash"
+        self.model_name = "gemini-3.5-flash"
         self.dmm = DMMClient()
 
     def upload_image(self, image_source, content_type="image/jpeg"):
@@ -144,7 +234,29 @@ class ModernArtAVEngine:
         return image_source
 
     def fetch_target_work(self, actress_name=None, keyword=None):
-        """指定した女優名または厳選リストから本物のAV名作を取得する（未投稿作品を優先ローテーション）"""
+        """指定した女優名または厳選リストから本物のAV名作を取得する（CID単位・女優単位の重複を完全防止）"""
+        posted_cids = set()
+        posted_actress_counts = {}
+
+        if os.path.exists(HISTORY_FILE):
+            try:
+                with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                    hist = json.load(f)
+                    for h in hist:
+                        cid_val = h.get("cid", "")
+                        if cid_val:
+                            posted_cids.add(cid_val)
+                        act_field = h.get("actress", "")
+                        # カンマ区切りの女優名を分解して集計
+                        for act_part in act_field.split(","):
+                            clean_name = act_part.strip()
+                            if clean_name:
+                                posted_actress_counts[clean_name] = posted_actress_counts.get(clean_name, 0) + 1
+            except Exception as e:
+                print(f"[履歴読み込み注意] {e}")
+
+        print(f"[重複排除情報] 投稿済みCID数: {len(posted_cids)}件 / 投稿済み女優集計: {len(posted_actress_counts)}名")
+
         target_info = None
         if actress_name:
             for item in LEGEND_ACTRESSES:
@@ -156,91 +268,111 @@ class ModernArtAVEngine:
                     "name": actress_name,
                     "era": "custom",
                     "keyword": actress_name,
+                    "cids": [],
                     "concept": f"{actress_name}が魅せる先鋭的な身体表現と時代の欲望",
                     "sales_rank": "歴代年間売上ランキング上位・ファン熱狂の傑作",
                     "rating_score": "高評価レビュー多数",
                     "phenomenon": "セル＆レンタル市場で絶大な支持を集めた大ヒット作"
                 }
         else:
-            # 投稿履歴を読み込み、未投稿または最も過去の女優を自動選定（重複防止ローテーション）
-            posted_actresses = []
-            if os.path.exists(HISTORY_FILE):
-                try:
-                    with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-                        hist = json.load(f)
-                        posted_actresses = [h.get("actress") for h in hist if h.get("actress")]
-                except Exception:
-                    posted_actresses = []
+            # 1. 過去に一度も投稿されていない女優を最優先
+            unposted = []
+            for item in LEGEND_ACTRESSES:
+                # 過去履歴の女優名に item["name"] が含まれていないかチェック
+                already_posted = any(item["name"] in past_act for past_act in posted_actress_counts.keys())
+                if not already_posted:
+                    unposted.append(item)
 
-            # 未投稿の女優を優先
-            unposted = [item for item in LEGEND_ACTRESSES if item["name"] not in posted_actresses]
             if unposted:
                 target_info = unposted[0]
-                print(f"[未投稿ローテーション選定] {target_info['name']} を選定しました。")
+                print(f"[未投稿ローテーション選定] {target_info['name']} を選定しました（未投稿残: {len(unposted)}名）。")
             else:
-                # 全員投稿済みの場合はランダム
-                target_info = random.choice(LEGEND_ACTRESSES)
-                print(f"[全巡回完了・再ローテーション] {target_info['name']} を選定しました。")
+                # 2. 全員1回以上投稿済みの場合は、投稿回数が最も少ない女優、かつ直近で投稿されていない女優を選択
+                # 最近投稿された女優を後ろに回す
+                sorted_actresses = sorted(
+                    LEGEND_ACTRESSES,
+                    key=lambda x: posted_actress_counts.get(x["name"], 0)
+                )
+                target_info = sorted_actresses[0]
+                print(f"[全巡回完了・最小回数ローテーション] {target_info['name']} を選定しました。")
 
         print(f"[対象アーティスト/女優] {target_info['name']} ({target_info['concept']})")
 
         chosen_work = None
-        # 1. 厳選CIDが指定されている場合は直指定で取得
-        if target_info.get("cid"):
-            cid_params = {
-                "api_id": self.dmm.api_id,
-                "affiliate_id": self.dmm.affiliate_id,
-                "site": "FANZA",
-                "service": "digital",
-                "cid": target_info["cid"],
-                "output": "json"
-            }
-            try:
-                res = requests.get(f"{self.dmm.base_url}/ItemList", params=cid_params, timeout=10)
-                cid_items = res.json().get("result", {}).get("items", [])
-                if cid_items:
-                    chosen_work = cid_items[0]
-                    print(f"[CID直指定ヒット] {target_info['cid']}: {chosen_work.get('title')}")
-            except Exception as e:
-                print(f"[CID取得エラー] {e}")
 
-        # 2. CIDで取得できなかった場合は、女優IDまたはキーワードで探索
+        # 1. 候補CIDリストの中から、未投稿のCIDを探索
+        candidate_cids = target_info.get("cids", [])
+        if not candidate_cids and target_info.get("cid"):
+            candidate_cids = [target_info["cid"]]
+
+        for test_cid in candidate_cids:
+            if test_cid not in posted_cids:
+                cid_params = {
+                    "api_id": self.dmm.api_id,
+                    "affiliate_id": self.dmm.affiliate_id,
+                    "site": "FANZA",
+                    "service": "digital",
+                    "cid": test_cid,
+                    "output": "json"
+                }
+                try:
+                    res = requests.get(f"{self.dmm.base_url}/ItemList", params=cid_params, timeout=10)
+                    cid_items = res.json().get("result", {}).get("items", [])
+                    if cid_items:
+                        chosen_work = cid_items[0]
+                        print(f"[未投稿CID直指定ヒット] {test_cid}: {chosen_work.get('title')}")
+                        break
+                except Exception as e:
+                    print(f"[CID取得エラー: {test_cid}] {e}")
+
+        # 2. CID直指定で未投稿作品が見つからなかった場合は、DMM APIで女優の作品を広く検索し未投稿作品を発掘
         if not chosen_work:
             items = []
             actresses = self.dmm.search_actress(name=target_info["name"])
             if actresses:
                 aid = actresses[0].get("id")
                 # floor="videoa"で本物の成人向けAVのみに限定（イメージビデオ videoc/idol 排除）
-                items = self.dmm.get_actress_works(aid, hits=25, floor="videoa")
+                items = self.dmm.get_actress_works(aid, hits=30, floor="videoa")
 
             if not items:
-                items = self.dmm.get_top_fanza_works(keyword=target_info["keyword"], hits=25, floor="videoa")
+                items = self.dmm.get_top_fanza_works(keyword=target_info["keyword"], hits=30, floor="videoa")
 
-            # 6枚以上の高画質サンプル画像を持つ本格AV作品のみを厳選
+            # 未投稿かつ6枚以上の高画質サンプル画像を持つ本格AV作品のみを厳選
             valid_works = []
             for it in items:
+                it_cid = it.get("content_id", "")
+                if it_cid in posted_cids:
+                    continue  # すでに投稿済みのビデオは絶対にスキップ！
+
                 samples = it.get("sampleImageURL", {}).get("sample_l", {}).get("image", [])
                 if isinstance(samples, str): samples = [samples]
                 if len(samples) >= 6:
                     valid_works.append(it)
 
             if valid_works:
-                # 代表作・ベスト・高評価作を優先
+                # 代表作・ベスト・単体タイトルを優先
                 for vw in valid_works:
                     t = vw.get("title", "")
-                    if target_info["name"] in t or "BEST" in t or "ベスト" in t or "HISTORY" in t:
+                    if target_info["name"] in t:
                         chosen_work = vw
                         break
                 if not chosen_work:
                     chosen_work = valid_works[0]
+                print(f"[DMM API検索ヒット・未投稿作品] {chosen_work.get('content_id')}: {chosen_work.get('title')}")
             elif items:
-                chosen_work = items[0]
+                # サンプル数緩和して未投稿作品を探す
+                for it in items:
+                    if it.get("content_id", "") not in posted_cids:
+                        chosen_work = it
+                        print(f"[未投稿作品採用] {chosen_work.get('content_id')}: {chosen_work.get('title')}")
+                        break
 
         if not chosen_work:
-            print(f"[警告] 作品が見つかりませんでした: {target_info['name']}")
+            print(f"[警告] 未投稿の作品が見つかりませんでした: {target_info['name']}")
             return None, target_info
 
         return self._format_work_data(chosen_work, target_info), target_info
+
 
     def _format_work_data(self, raw_item, target_info):
         """DMMの生データを整形する（最大18枚のサンプル画像・売上実績・レビュー評価を保持）"""
@@ -299,12 +431,15 @@ class ModernArtAVEngine:
         if not self.gemini_api_key:
             return self._fallback_art_content(work, target_info)
 
-        try:
-            import google.generativeai as genai
-            genai.configure(api_key=self.gemini_api_key)
-            model = genai.GenerativeModel(self.model_name)
+        models_to_try = [self.model_name, "gemini-2.5-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-2.5-pro"]
+        # 重複削除
+        seen_models = set()
+        unique_models = [m for m in models_to_try if m and not (m in seen_models or seen_models.add(m))]
 
-            prompt = f"""あなたは現代アート評論家であり、同時に日本のサブカルチャー・ゼロ年代カルチャー・性風俗史を熟知した先鋭的な文化批評家です。
+        import google.generativeai as genai
+        genai.configure(api_key=self.gemini_api_key)
+
+        prompt = f"""あなたは現代アート評論家であり、同時に日本のサブカルチャー・ゼロ年代カルチャー・性風俗史を熟知した先鋭的な文化批評家です。
 以下のAV作品および出演女優について、批評シリーズ【現代アートとしてのAV】の記事本文を執筆してください。
 
 【対象作品情報】
@@ -356,21 +491,27 @@ class ModernArtAVEngine:
 }}
 """
 
-            response = model.generate_content(prompt)
-            text = response.text.strip()
+        for current_model_name in unique_models:
+            try:
+                print(f"[Gemini 評論生成試行] モデル: {current_model_name}")
+                model = genai.GenerativeModel(current_model_name)
+                response = model.generate_content(prompt)
+                text = response.text.strip()
 
-            # JSONの抽出
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0].strip()
-            elif "```" in text:
-                text = text.split("```")[1].split("```")[0].strip()
+                # JSONの抽出
+                if "```json" in text:
+                    text = text.split("```json")[1].split("```")[0].strip()
+                elif "```" in text:
+                    text = text.split("```")[1].split("```")[0].strip()
 
-            data = json.loads(text)
-            return data
+                data = json.loads(text)
+                print(f"[Gemini 評論生成成功] モデル: {current_model_name}")
+                return data
+            except Exception as e:
+                print(f"[Gemini API試行失敗 ({current_model_name})]: {e}")
 
-        except Exception as e:
-            print(f"Gemini API エラー: {e}")
-            return self._fallback_art_content(work, target_info)
+        print("[警告] すべてのGeminiモデルで生成失敗したため、フォールバック批評を使用します")
+        return self._fallback_art_content(work, target_info)
 
     def _fallback_art_content(self, work, target_info):
         """APIエラー時のフォールバック批評データ"""
