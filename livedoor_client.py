@@ -9,23 +9,13 @@ load_dotenv()
 class LivedoorClient:
     def __init__(self, blog_id=None):
         self.livedoor_id = os.getenv("LIVEDOOR_ID")
-        self.blog_id = blog_id or os.getenv("LIVEDOOR_BLOG_ID") or "ranking000"
+        self.blog_id = blog_id or os.getenv("LIVEDOOR_BLOG_ID") or os.getenv("KANETU_BLOG_ID") or "ranking000"
         self.api_key = os.getenv("LIVEDOOR_API_KEY")
         
         if not all([self.livedoor_id, self.blog_id, self.api_key]):
             raise ValueError("LIVEDOOR_ID, LIVEDOOR_BLOG_ID, LIVEDOOR_API_KEY環境変数が設定されていません。")
             
         self.endpoint = f"https://livedoor.blogcms.jp/atompub/{self.blog_id}/article"
-
-    def _truncate_title(self, title, max_bytes=240):
-        """ライブドアブログのAtomPubタイトル制限（最大255バイト）を超えないよう安全に切り詰める"""
-        if not title or len(title.encode('utf-8')) <= max_bytes:
-            return title
-        res = title
-        suffix = "..."
-        while len((res + suffix).encode('utf-8')) > max_bytes and len(res) > 0:
-            res = res[:-1]
-        return res + suffix
 
     def post_article(self, title, content, categories=None, publish=True):
         """
@@ -39,20 +29,15 @@ class LivedoorClient:
         """
         draft_value = "no" if publish else "yes"
         
-        # タイトル長（255バイト制限）対策
-        safe_title = self._truncate_title(title, max_bytes=240)
-        escaped_title = saxutils.escape(safe_title)
+        # XMLで許可されない文字のエスケープ
+        escaped_title = saxutils.escape(title)
         
-        # AtomPub XMLの構築（カテゴリ重複排除）
+        # AtomPub XMLの構築
         category_tags = ""
         if categories:
-            seen_cats = set()
             for cat in categories:
-                cat_str = str(cat).strip()
-                if cat_str and cat_str not in seen_cats:
-                    seen_cats.add(cat_str)
-                    escaped_cat = saxutils.escape(cat_str)
-                    category_tags += f'<category term="{escaped_cat}" />\n'
+                escaped_cat = saxutils.escape(cat)
+                category_tags += f'<category term="{escaped_cat}" />\n'
                 
         xml_template = f'''<?xml version="1.0" encoding="utf-8"?>
 <entry xmlns="http://www.w3.org/2005/Atom"
@@ -139,20 +124,8 @@ class LivedoorClient:
         return image_source
 
 if __name__ == "__main__":
-    # テスト動作確認用
     try:
         client = LivedoorClient()
         print("初期化成功。")
-        
-        # 実際に投稿テストを行う場合は以下のコメントを外してください
-        # res = client.post_article(
-        #     "自動投稿テスト (Livedoor)", 
-        #     "<p>これはPythonからのAtomPubテスト投稿です。</p>", 
-        #     categories=["テスト"], 
-        #     publish=False
-        # )
-        # if res:
-        #     print("テスト投稿に成功しました。")
-            
     except Exception as e:
         print(f"エラー: {e}")
