@@ -257,8 +257,9 @@ class ModernArtAVEngine:
 
         print(f"[重複排除情報] 投稿済みCID数: {len(posted_cids)}件 / 投稿済み女優集計: {len(posted_actress_counts)}名")
 
-        target_info = None
+        candidates = []
         if actress_name:
+            target_info = None
             for item in LEGEND_ACTRESSES:
                 if actress_name in item["name"] or item["name"] in actress_name:
                     target_info = item
@@ -274,104 +275,109 @@ class ModernArtAVEngine:
                     "rating_score": "高評価レビュー多数",
                     "phenomenon": "セル＆レンタル市場で絶大な支持を集めた大ヒット作"
                 }
+            candidates = [target_info]
         else:
             # 1. 過去に一度も投稿されていない女優を最優先
             unposted = []
             for item in LEGEND_ACTRESSES:
-                # 過去履歴の女優名に item["name"] が含まれていないかチェック
                 already_posted = any(item["name"] in past_act for past_act in posted_actress_counts.keys())
                 if not already_posted:
                     unposted.append(item)
 
-            if unposted:
-                target_info = unposted[0]
-                print(f"[未投稿ローテーション選定] {target_info['name']} を選定しました（未投稿残: {len(unposted)}名）。")
-            else:
-                # 2. 全員1回以上投稿済みの場合は、投稿回数が最も少ない女優、かつ直近で投稿されていない女優を選択
-                # 最近投稿された女優を後ろに回す
-                sorted_actresses = sorted(
-                    LEGEND_ACTRESSES,
-                    key=lambda x: posted_actress_counts.get(x["name"], 0)
-                )
-                target_info = sorted_actresses[0]
-                print(f"[全巡回完了・最小回数ローテーション] {target_info['name']} を選定しました。")
+            # 2. 投稿回数が少ない女優の順
+            sorted_actresses = sorted(
+                LEGEND_ACTRESSES,
+                key=lambda x: posted_actress_counts.get(x["name"], 0)
+            )
 
-        print(f"[対象アーティスト/女優] {target_info['name']} ({target_info['concept']})")
+            # 未投稿女優を先頭に、その後は投稿回数の少ない順で候補リストを構築
+            candidates = unposted + [a for a in sorted_actresses if a not in unposted]
+            print(f"[候補女優数] 未投稿: {len(unposted)}名 / 全候補: {len(candidates)}名")
 
-        chosen_work = None
+        # 候補女優を順番に探索し、未投稿作品が見つかった最初の女優を採用（自動スキップ）
+        for target_info in candidates:
+            print(f"\n--- [女優チェック] {target_info['name']} ({target_info['concept']}) ---")
+            chosen_work = None
 
-        # 1. 候補CIDリストの中から、未投稿のCIDを探索
-        candidate_cids = target_info.get("cids", [])
-        if not candidate_cids and target_info.get("cid"):
-            candidate_cids = [target_info["cid"]]
+            # 1. 候補CIDリストの中から、未投稿のCIDを探索
+            candidate_cids = target_info.get("cids", [])
+            if not candidate_cids and target_info.get("cid"):
+                candidate_cids = [target_info["cid"]]
 
-        for test_cid in candidate_cids:
-            if test_cid not in posted_cids:
-                cid_params = {
-                    "api_id": self.dmm.api_id,
-                    "affiliate_id": self.dmm.affiliate_id,
-                    "site": "FANZA",
-                    "service": "digital",
-                    "cid": test_cid,
-                    "output": "json"
-                }
+            for test_cid in candidate_cids:
+                if test_cid not in posted_cids:
+                    cid_params = {
+                        "api_id": self.dmm.api_id,
+                        "affiliate_id": self.dmm.affiliate_id,
+                        "site": "FANZA",
+                        "service": "digital",
+                        "cid": test_cid,
+                        "output": "json"
+                    }
+                    try:
+                        res = requests.get(f"{self.dmm.base_url}/ItemList", params=cid_params, timeout=10)
+                        cid_items = res.json().get("result", {}).get("items", [])
+                        if cid_items:
+                            chosen_work = cid_items[0]
+                            print(f"[未投稿CID直指定ヒット] {test_cid}: {chosen_work.get('title')}")
+                            break
+                    except Exception as e:
+                        print(f"[CID取得エラー: {test_cid}] {e}")
+
+            # 2. CID直指定で未投稿作品が見つからなかった場合は、DMM APIで女優の作品を広く検索し未投稿作品を発掘
+            if not chosen_work:
+                items = []
                 try:
-                    res = requests.get(f"{self.dmm.base_url}/ItemList", params=cid_params, timeout=10)
-                    cid_items = res.json().get("result", {}).get("items", [])
-                    if cid_items:
-                        chosen_work = cid_items[0]
-                        print(f"[未投稿CID直指定ヒット] {test_cid}: {chosen_work.get('title')}")
-                        break
-                except Exception as e:
-                    print(f"[CID取得エラー: {test_cid}] {e}")
+                    actresses = self.dmm.search_actress(name=target_info["name"])
+                    if actresses:
+                        aid = actresses[0].get("id")
+                        # floor="videoa"で本物の成人向けAVのみに限定（イメージビデオ videoc/idol 排除）
+                        items = self.dmm.get_actress_works(aid, hits=30, floor="videoa")
 
-        # 2. CID直指定で未投稿作品が見つからなかった場合は、DMM APIで女優の作品を広く検索し未投稿作品を発掘
-        if not chosen_work:
-            items = []
-            actresses = self.dmm.search_actress(name=target_info["name"])
-            if actresses:
-                aid = actresses[0].get("id")
-                # floor="videoa"で本物の成人向けAVのみに限定（イメージビデオ videoc/idol 排除）
-                items = self.dmm.get_actress_works(aid, hits=30, floor="videoa")
+                    if not items:
+                        items = self.dmm.get_top_fanza_works(keyword=target_info["keyword"], hits=30, floor="videoa")
+                except Exception as search_err:
+                    print(f"[DMM API検索エラー: {target_info['name']}] {search_err}")
 
-            if not items:
-                items = self.dmm.get_top_fanza_works(keyword=target_info["keyword"], hits=30, floor="videoa")
-
-            # 未投稿かつ6枚以上の高画質サンプル画像を持つ本格AV作品のみを厳選
-            valid_works = []
-            for it in items:
-                it_cid = it.get("content_id", "")
-                if it_cid in posted_cids:
-                    continue  # すでに投稿済みのビデオは絶対にスキップ！
-
-                samples = it.get("sampleImageURL", {}).get("sample_l", {}).get("image", [])
-                if isinstance(samples, str): samples = [samples]
-                if len(samples) >= 6:
-                    valid_works.append(it)
-
-            if valid_works:
-                # 代表作・ベスト・単体タイトルを優先
-                for vw in valid_works:
-                    t = vw.get("title", "")
-                    if target_info["name"] in t:
-                        chosen_work = vw
-                        break
-                if not chosen_work:
-                    chosen_work = valid_works[0]
-                print(f"[DMM API検索ヒット・未投稿作品] {chosen_work.get('content_id')}: {chosen_work.get('title')}")
-            elif items:
-                # サンプル数緩和して未投稿作品を探す
+                # 未投稿かつ6枚以上の高画質サンプル画像を持つ本格AV作品のみを厳選
+                valid_works = []
                 for it in items:
-                    if it.get("content_id", "") not in posted_cids:
-                        chosen_work = it
-                        print(f"[未投稿作品採用] {chosen_work.get('content_id')}: {chosen_work.get('title')}")
-                        break
+                    it_cid = it.get("content_id", "")
+                    if it_cid in posted_cids:
+                        continue  # すでに投稿済みのビデオは絶対にスキップ！
 
-        if not chosen_work:
-            print(f"[警告] 未投稿の作品が見つかりませんでした: {target_info['name']}")
-            return None, target_info
+                    samples = it.get("sampleImageURL", {}).get("sample_l", {}).get("image", [])
+                    if isinstance(samples, str): samples = [samples]
+                    if len(samples) >= 6:
+                        valid_works.append(it)
 
-        return self._format_work_data(chosen_work, target_info), target_info
+                if valid_works:
+                    # 代表作・ベスト・単体タイトルを優先
+                    for vw in valid_works:
+                        t = vw.get("title", "")
+                        if target_info["name"] in t:
+                            chosen_work = vw
+                            break
+                    if not chosen_work:
+                        chosen_work = valid_works[0]
+                    print(f"[DMM API検索ヒット・未投稿作品] {chosen_work.get('content_id')}: {chosen_work.get('title')}")
+                elif items:
+                    # サンプル数緩和して未投稿作品を探す
+                    for it in items:
+                        if it.get("content_id", "") not in posted_cids:
+                            chosen_work = it
+                            print(f"[未投稿作品採用] {chosen_work.get('content_id')}: {chosen_work.get('title')}")
+                            break
+
+            if chosen_work:
+                print(f"[対象決定] 女優: {target_info['name']} / 作品: {chosen_work.get('title')}")
+                return self._format_work_data(chosen_work, target_info), target_info
+            else:
+                print(f"[自動スキップ] 作品が見つからないため次の女優へスキップ: {target_info['name']}")
+
+        print("[エラー] 全候補女優で未投稿作品を取得できませんでした。")
+        return None, None
+
 
 
     def _format_work_data(self, raw_item, target_info):
