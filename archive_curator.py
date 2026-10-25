@@ -63,14 +63,15 @@ class ArchiveCurator:
             print(f"[画像アップロードエラー] {e}")
         return image_source
 
-    def fetch_past_articles(self, target_count=30, start_offset=0, max_pages=30):
+    def fetch_past_articles(self, target_count=30, start_offset=0, max_pages=80):
         """過去に投稿された記事をAtomPub経由で取得し、美女情報を抽出する"""
         items = []
         seen_names = set()
         skipped = 0
+        all_collected_items = []
         page_url = f"https://livedoor.blogcms.jp/atompub/{self.blog_id}/article"
 
-        print(f"過去記事の取得を開始します (スキップ: {start_offset}件, 目標取得: {target_count}件)...")
+        print(f"過去記事の取得を開始します (スキップ: {start_offset}件, 目標取得: {target_count}件, 走査上限: {max_pages}ページ)...")
 
         for page in range(1, max_pages + 1):
             if not page_url:
@@ -94,6 +95,10 @@ class ArchiveCurator:
                     raw_title = title_elem.text if title_elem is not None and title_elem.text else ""
                     content_elem = e.find('atom:content', ns)
                     content = content_elem.text if content_elem is not None and content_elem.text else ""
+
+                    # 総集編自体の記事は過去美女抽出から除外
+                    if "総集編" in raw_title:
+                        continue
 
                     # 記事URL
                     alt_links = [l.attrib.get('href') for l in e.findall('atom:link', ns) if l.attrib.get('rel') == 'alternate']
@@ -123,12 +128,7 @@ class ArchiveCurator:
 
                     seen_names.add(name)
 
-                    # オフセット処理
-                    if skipped < start_offset:
-                        skipped += 1
-                        continue
-
-                    items.append({
+                    item_data = {
                         "name": name,
                         "twitter_id": tw_id,
                         "twitter_url": f"https://x.com/{tw_id}" if tw_id else "",
@@ -136,7 +136,15 @@ class ArchiveCurator:
                         "image_url": img_src,
                         "dmm_url": dmm_url,
                         "raw_title": raw_title
-                    })
+                    }
+                    all_collected_items.append(item_data)
+
+                    # オフセット処理
+                    if skipped < start_offset:
+                        skipped += 1
+                        continue
+
+                    items.append(item_data)
 
                     if len(items) >= target_count:
                         break
@@ -151,6 +159,17 @@ class ArchiveCurator:
             except Exception as e:
                 print(f"ページ {page} 取得中にエラー: {e}")
                 break
+
+        # オフセットが総件数を超えていた、または終端に達して不足した場合の周回フォールバック
+        if len(items) < target_count and len(all_collected_items) > 0:
+            print(f"[周回モード] 過去記事の終端に達しました (有効収集件数: {len(all_collected_items)}件)。最初から再ローテーションして補完します。")
+            existing_names = {it["name"] for it in items}
+            for it in all_collected_items:
+                if it["name"] not in existing_names:
+                    items.append(it)
+                    existing_names.add(it["name"])
+                    if len(items) >= target_count:
+                        break
 
         print(f"合計 {len(items)} 件の過去美女データを取得しました。")
         return items
@@ -743,7 +762,10 @@ if __name__ == "__main__":
         curator.notify_article(article_url=args.notify_url, title=args.notify_title)
     elif args.daily_auto:
         # 一日一回自動実行モード
-        curator.run_daily_archive_post(count=args.count)
+        import sys
+        success = curator.run_daily_archive_post(count=args.count)
+        if not success:
+            sys.exit(1)
     else:
         # 手動実行モード
         vol = args.vol or 1
