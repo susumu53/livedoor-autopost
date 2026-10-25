@@ -683,6 +683,20 @@ class SexTechniqueEngine:
             self.history["last_category"] = chosen_cat
             self._save_history()
 
+            # GitHub Actions実行時は投稿履歴を自動コミット＆プッシュ（次回別トピック選定のため）
+            if os.getenv("GITHUB_ACTIONS"):
+                try:
+                    import subprocess
+                    subprocess.run(["git", "config", "--local", "user.email", "action@github.com"], check=False)
+                    subprocess.run(["git", "config", "--local", "user.name", "GitHub Action"], check=False)
+                    subprocess.run(["git", "add", "sex_tech_history.json"], check=False)
+                    subprocess.run(["git", "commit", "-m", "Update sex technique history [skip ci]"], check=False)
+                    subprocess.run(["git", "pull", "--rebase", "origin", "master"], check=False)
+                    subprocess.run(["git", "push"], check=False)
+                    print("[GitHub Actions] sex_tech_history.json を自動コミット＆プッシュしました。")
+                except Exception as git_err:
+                    print(f"[Gitコミット警告] {git_err}")
+
             # 投稿記事のURLを抽出して通知
             try:
                 import xml.etree.ElementTree as ET
