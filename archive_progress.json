@@ -1,5 +1,5 @@
 {
-  "current_vol": 26,
+  "current_vol": 27,
   "posted_history": [
     {
       "vol": 1,
@@ -125,6 +125,11 @@
       "vol": 25,
       "posted_at": "2026-10-29T16:46:35.375811",
       "url": "https://bijozukan.doorblog.jp/archives/17761823.html"
+    },
+    {
+      "vol": 26,
+      "posted_at": "2026-10-30T16:36:58.014355",
+      "url": "https://bijozukan.doorblog.jp/archives/17771342.html"
     }
   ]
 }
