@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 from dmm_client import DMMClient
 from curation_engine import sanitize_text
+from monetize_helper import build_monetize_section
 
 load_dotenv()
 
@@ -522,6 +523,7 @@ class SingleReviewEngine:
 
 </div>
 """
+        html_out += build_monetize_section(subject=work.get('actress'), mode="review")
         return title, html_out, category, final_tags
 
     def post_single_review(self, keyword=None, publish=True):

@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import requests
 
 from dmm_client import DMMClient
+from monetize_helper import build_monetize_section
 try:
     from mgs_client import MGSClient
 except ImportError:
@@ -632,4 +633,5 @@ class CurationEngine:
   </div>
 </div>
 '''
+        html_content += build_monetize_section(subject=category_name, mode="ranking")
         return title, html_content, category_name, final_tags

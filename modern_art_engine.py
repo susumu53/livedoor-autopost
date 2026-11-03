@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 
 from dmm_client import DMMClient
 from curation_engine import sanitize_text
+from monetize_helper import build_monetize_section, get_amazon_url
 
 load_dotenv()
 
@@ -1210,6 +1211,7 @@ class ModernArtAVEngine:
   </div>
 </div>
 '''
+        html += build_monetize_section(subject=work.get('actress'), mode="review")
         return title, html, category, tags
 
 

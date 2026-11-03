@@ -13,6 +13,7 @@ except ImportError:
         def __init__(self): pass
         def search_works(self, *args, **kwargs): return []
 from livedoor_client import LivedoorClient
+from monetize_helper import build_monetize_section
 from database import BeautyDatabase
 try:
     from generate_article import BeautyManager
@@ -211,6 +212,7 @@ def generate_html_article(items, category_name):
             
         html += f'  </div>\n'
         
+    html += build_monetize_section(subject=category_name, mode="ranking")
     html += '  <div class="ranking-footer">\n'
     html += f'    <p>※ランキング情報は記事作成時点（{today_str}）のものです。最新の情報はリンク先（FANZA様/MGS様サイト）にてご確認ください。</p>\n'
     html += '  </div>\n'

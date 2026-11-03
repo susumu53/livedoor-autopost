@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from livedoor_client import LivedoorClient
 from dmm_client import DMMClient
 from curation_engine import sanitize_text
+from monetize_helper import build_monetize_section, get_amazon_url
 
 load_dotenv()
 
@@ -599,6 +600,8 @@ class SexTechniqueEngine:
         </style>
         """
 
+        monetize_html = build_monetize_section(subject=keyword.split()[0], mode="technique")
+
         # 最終HTMLの組み立て
         full_html = f"""
         {custom_styles}
@@ -609,6 +612,7 @@ class SexTechniqueEngine:
             {eyecatch_html}
             {generated_body}
             {items_html}
+            {monetize_html}
             <div style="margin-top: 40px; padding: 20px; background: #f8f9fa; border-radius: 12px; text-align: center; font-size: 13px; color: #777;">
                 <p>※本記事は一般的な知識・テクニックおよびパートナーとの円滑なコミュニケーション向上を目的とした情報提供です。無理な行為や痛みを伴う行為は避け、お互いの同意と安全を最優先にお楽しみください。</p>
             </div>
