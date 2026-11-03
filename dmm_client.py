@@ -35,7 +35,7 @@ class DMMClient:
             print(f"DMM API Exception (ActressSearch): {e}")
         return []
 
-    def get_actress_works(self, actress_id, hits=10, site="FANZA", service="digital", floor=None, keyword=None):
+    def get_actress_works(self, actress_id, hits=10, site="FANZA", service="digital", floor=None, keyword=None, sort=None, affiliate_id=None):
         """特定女優の作品（サンプル画像URL、アフィリンク）を取得する"""
         params = {
             "api_id": self.api_id,
@@ -51,6 +51,8 @@ class DMMClient:
             params["floor"] = floor
         if keyword:
             params["keyword"] = keyword
+        if sort: params["sort"] = sort
+        if affiliate_id: params["affiliate_id"] = affiliate_id
             
         try:
             response = requests.get(f"{self.base_url}/ItemList", params=params, timeout=10)
@@ -94,7 +96,7 @@ class DMMClient:
             print(f"DMM API Exception (get_anime_works): {e}")
         return []
 
-    def get_top_fanza_works(self, service="digital", floor="videoa", hits=10, keyword=None):
+    def get_top_fanza_works(self, service="digital", floor="videoa", hits=10, keyword=None, sort="rank", affiliate_id=None):
         """FANZAの特定サービスにおける売れ筋(rank順)商品を取得する"""
         params = {
             "api_id": self.api_id,
@@ -107,6 +109,8 @@ class DMMClient:
         }
         if floor: params["floor"] = floor
         if keyword: params["keyword"] = keyword
+        if sort: params["sort"] = sort
+        if affiliate_id: params["affiliate_id"] = affiliate_id
             
         try:
             response = requests.get(f"{self.base_url}/ItemList", params=params, timeout=10)
@@ -116,7 +120,7 @@ class DMMClient:
             print(f"DMM API Exception: {e}")
         return []
 
-    def get_general_works(self, keyword=None, service="ebook", floor=None, hits=10):
+    def get_general_works(self, keyword=None, service="ebook", floor=None, hits=10, sort="rank", affiliate_id=None):
         """一般作品（非アダルト）を検索する"""
         params = {
             "api_id": self.api_id,
@@ -129,6 +133,8 @@ class DMMClient:
         }
         if floor: params["floor"] = floor
         if keyword: params["keyword"] = keyword
+        if sort: params["sort"] = sort
+        if affiliate_id: params["affiliate_id"] = affiliate_id
             
         try:
             response = requests.get(f"{self.base_url}/ItemList", params=params, timeout=10)
@@ -136,6 +142,35 @@ class DMMClient:
                 return response.json().get("result", {}).get("items", [])
         except Exception as e:
             print(f"DMM API Exception: {e}")
+        return []
+
+    def get_dmm_items(self, service="ebook", floor="photo", sort="date", hits=50, offset=1,
+                      keyword=None, article=None, article_id=None, affiliate_id=None):
+        """DMM.com（一般向け）の商品を検索する。article='actor' と article_id で出演者の完全一致検索が可能"""
+        params = {
+            "api_id": self.api_id,
+            "affiliate_id": affiliate_id or self.affiliate_id,
+            "site": "DMM.com",
+            "service": service,
+            "floor": floor,
+            "sort": sort,
+            "hits": hits,
+            "offset": offset,
+            "output": "json"
+        }
+        if keyword: params["keyword"] = keyword
+        if sort: params["sort"] = sort
+        if affiliate_id: params["affiliate_id"] = affiliate_id
+        if article and article_id:
+            params["article"] = article
+            params["article_id"] = article_id
+        try:
+            response = requests.get(f"{self.base_url}/ItemList", params=params, timeout=15)
+            if response.status_code == 200:
+                return response.json().get("result", {}).get("items", [])
+            print(f"DMM API Error (get_dmm_items): {response.status_code}")
+        except Exception as e:
+            print(f"DMM API Exception (get_dmm_items): {e}")
         return []
 
     def get_birthday_from_wikipedia(self, name):

@@ -243,15 +243,16 @@ class ArchiveCurator:
                 "reviews": {i: fallbacks[i % len(fallbacks)] for i in range(len(items))}
             }
 
-    def generate_mega_archive_html(self, count=30, vol=1, start_offset=0):
+    def generate_mega_archive_html(self, count=30, vol=1, start_offset=0, items=None, title=None, intro=None):
         """過去記事から総集編まとめ記事を生成する"""
-        items = self.fetch_past_articles(target_count=count, start_offset=start_offset)
+        if items is None:  # items 指定時（月刊まとめ）は過去記事の走査をしない
+            items = self.fetch_past_articles(target_count=count, start_offset=start_offset)
         if not items:
             print("過去記事の抽出に失敗しました。")
             return None, None, None, None
 
         # 先頭（No.1）美女の画像をライブドアにアップロードしてOGP/Twitter Card画像として自動認識させる
-        if items and items[0].get("image_url"):
+        if items and items[0].get("image_url") and "livedoor.blogimg.jp" not in items[0]["image_url"]:
             uploaded_url = self.upload_image(items[0]["image_url"])
             if uploaded_url:
                 items[0]["image_url"] = uploaded_url
@@ -260,11 +261,18 @@ class ArchiveCurator:
         now = datetime.datetime.now()
         date_str = now.strftime("%Y年%m月%d日")
         vol_str = f" Vol.{vol}" if vol else ""
-        title = f"【保存版・総集編{vol_str}】歴代の注目美女{actual_count}選！当ブログ「美女図鑑」が厳選したSNS話題の神美女カタログ"
+        title = title or f"【保存版・総集編{vol_str}】歴代の注目美女{actual_count}選！当ブログ「美女図鑑」が厳選したSNS話題の神美女カタログ"
         category = "美女総集編"
 
         print(f"Gemini AIで紹介文と導入文を生成中 (Vol.{vol} / {actual_count}人分)...")
-        ai_data = self.generate_ai_commentary(items)
+        if all(it.get("comment") for it in items):
+            # 月刊まとめ：個別記事作成時に保存した紹介文を使う（AI再生成しない）
+            ai_data = {
+                "intro": intro or "今月「美女図鑑」で紹介した美女たちを一挙におさらい！気になる人は個別記事でプロフィールや最新写真集をチェックしてください。",
+                "reviews": {i: it["comment"] for i, it in enumerate(items)},
+            }
+        else:
+            ai_data = self.generate_ai_commentary(items)
         intro_text = ai_data["intro"]
         reviews = ai_data["reviews"]
 
@@ -526,9 +534,9 @@ class ArchiveCurator:
 '''
         return title, html_out, category, final_tags
 
-    def post_archive_article(self, count=30, vol=1, start_offset=0, publish=True):
+    def post_archive_article(self, count=30, vol=1, start_offset=0, publish=True, items=None, title=None, intro=None):
         """総集編まとめ記事を生成してLivedoorブログへ投稿する"""
-        title, html_content, category, tags = self.generate_mega_archive_html(count=count, vol=vol, start_offset=start_offset)
+        title, html_content, category, tags = self.generate_mega_archive_html(count=count, vol=vol, start_offset=start_offset, items=items, title=title, intro=intro)
         if not title or not html_content:
             print("記事生成に失敗したため、投稿を中止します。")
             return None
@@ -705,6 +713,70 @@ class ArchiveCurator:
         )
         return True
 
+    def load_monthly_items(self, count=30):
+        """bijozukan_history.json から総集編に未掲載の新しい個別記事を取得する"""
+        hist_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bijozukan_history.json")
+        progress = self.load_progress()
+        archived_urls = set(progress.get("archived_urls", []))
+        if not os.path.exists(hist_file):
+            return []
+        try:
+            with open(hist_file, "r", encoding="utf-8") as f:
+                profiles = json.load(f).get("profiles", [])
+        except Exception as e:
+            print(f"[履歴読み込みエラー] {e}")
+            return []
+        items = []
+        for p in reversed(profiles):
+            url, img = p.get("url", ""), p.get("image_url", "")
+            if not url or not img or url in archived_urls:
+                continue
+            items.append({
+                "name": p["name"], "twitter_id": "", "twitter_url": "",
+                "article_url": url, "image_url": img,
+                "dmm_url": p.get("dmm_url", ""), "comment": p.get("comment", ""),
+            })
+            if len(items) >= count:
+                break
+        return items
+
+    def run_monthly_archive_post(self, count=30, min_items=5, dry_run=False):
+        """月1回、新しく蓄積した個別記事だけをまとめて投稿する（過去記事の使い回し・周回なし）"""
+        items = self.load_monthly_items(count=count)
+        if len(items) < min_items:
+            print(f"[スキップ] 未掲載の個別記事が {len(items)} 件（最低 {min_items} 件必要）のため、今月の総集編は見送ります。")
+            return True
+        progress = self.load_progress()
+        vol = progress.get("current_vol", 30)
+        ym = (datetime.date.today().replace(day=1) - datetime.timedelta(days=1)).strftime("%Y年%m月")
+        title = f"【{ym}総集編 Vol.{vol}】美女図鑑 今月の注目美女{len(items)}選まとめ｜プロフィール＆最新写真集カタログ"
+        intro = f"当ブログ「美女図鑑」で最近ご紹介した注目の美女{len(items)}名を一挙におさらい！気になる美女は「当ブログの個別記事を見る」から詳しいプロフィールや最新写真集をチェックしてください。"
+        if dry_run:
+            t, html_content, _, _ = self.generate_mega_archive_html(count=len(items), vol=vol, items=items, title=title, intro=intro)
+            os.makedirs("scratch", exist_ok=True)
+            with open("scratch/archive_monthly_preview.html", "w", encoding="utf-8") as f:
+                f.write(html_content)
+            print(f"[DRY-RUN] {t} ({len(items)}人) -> scratch/archive_monthly_preview.html")
+            return True
+        res = self.post_archive_article(count=len(items), vol=vol, publish=True, items=items, title=title, intro=intro)
+        if not res:
+            return False
+        art_url = "https://bijozukan.doorblog.jp/"
+        try:
+            root = ET.fromstring(res)
+            ns = {'atom': 'http://www.w3.org/2005/Atom'}
+            alt_links = [l.attrib.get('href') for l in root.findall('atom:link', ns) if l.attrib.get('rel') == 'alternate']
+            if alt_links:
+                art_url = alt_links[0]
+        except Exception:
+            pass
+        progress["current_vol"] = vol + 1
+        progress.setdefault("archived_urls", []).extend(it["article_url"] for it in items)
+        progress["posted_history"].append({"vol": vol, "posted_at": datetime.datetime.now().isoformat(), "url": art_url, "count": len(items)})
+        self.save_progress(progress)
+        print(f"🎉 [SUCCESS] 月刊総集編 Vol.{vol}（{len(items)}名）を投稿しました！")
+        return True
+
     def run_daily_archive_post(self, count=30):
         """一日一回、次の巻（Vol.X）を自動投稿して進捗を更新する"""
         progress = self.load_progress()
@@ -746,7 +818,9 @@ if __name__ == "__main__":
     parser.add_argument("--count", type=int, default=30, help="総集編に掲載する人数 (デフォルト: 30)")
     parser.add_argument("--vol", type=int, default=None, help="手動指定時の巻数 (例: 1, 2, 3...)")
     parser.add_argument("--offset", type=int, default=None, help="手動指定時のスキップ件数")
-    parser.add_argument("--daily-auto", action="store_true", help="一日一回モード：前回の続きから自動投稿して進捗を更新する")
+    parser.add_argument("--daily-auto", action="store_true", help="旧モード（過去記事さかのぼり）")
+    parser.add_argument("--monthly-auto", action="store_true", help="月1回モード：bijozukan_history.json の新着個別記事だけをまとめる")
+    parser.add_argument("--min-items", type=int, default=5, help="--monthly-auto 時の最低掲載人数")
     parser.add_argument("--notify-latest", action="store_true", help="美女図鑑の最新記事を ntfy に送信してX投稿リンクを発行する")
     parser.add_argument("--notify-url", type=str, default=None, help="指定URLの記事を ntfy に送信")
     parser.add_argument("--notify-title", type=str, default=None, help="通知時のタイトル（--notify-urlと併用）")
@@ -760,10 +834,25 @@ if __name__ == "__main__":
         curator.notify_article()
     elif args.notify_url:
         curator.notify_article(article_url=args.notify_url, title=args.notify_title)
+    elif args.monthly_auto:
+        import sys
+        success = curator.run_monthly_archive_post(count=args.count, min_items=args.min_items, dry_run=args.dry_run)
+        if not success:
+            sys.exit(1)
     elif args.daily_auto:
         # 一日一回自動実行モード
         import sys
-        success = curator.run_daily_archive_post(count=args.count)
+        import subprocess
+        from bijozukan_profile_engine import BijozukanProfileEngine
+        print("=== [毎日実行] 美女図鑑 個別プロフィール記事の自動投稿を開始 ===")
+        success = BijozukanProfileEngine(blog_id=args.blog_id).run()
+        try:
+            subprocess.run(["git", "add", "bijozukan_history.json"], check=False)
+        except Exception:
+            pass
+        if datetime.date.today().day == 1:
+            print("=== [毎月1日] 月刊総集編の自動投稿を開始 ===")
+            curator.run_monthly_archive_post(count=args.count, min_items=args.min_items)
         if not success:
             sys.exit(1)
     else:
