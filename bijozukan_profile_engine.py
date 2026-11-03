@@ -224,10 +224,12 @@ class BijozukanProfileEngine:
         return None
 
     def load_bigirl_feed(self, feed_path=None):
-        """scratch/bigirl_feed.xml（または bigirl_feed.xml）から候補（名前・X ID・カテゴリ）を抽出する"""
+        """feed.xml（または scratch/feed.xml）から候補（名前・X ID・カテゴリ）を抽出する"""
         paths = [feed_path] if feed_path else [
-            os.path.join(BASE_DIR, "scratch", "bigirl_feed.xml"),
+            os.path.join(BASE_DIR, "feed.xml"),
+            os.path.join(BASE_DIR, "scratch", "feed.xml"),
             os.path.join(BASE_DIR, "bigirl_feed.xml"),
+            os.path.join(BASE_DIR, "scratch", "bigirl_feed.xml"),
         ]
         xml_text = ""
         for p in paths:

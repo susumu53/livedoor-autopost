@@ -2,7 +2,7 @@
 bi-girl.net RSS の半自動更新ヘルパー
 1. ブラウザで https://bi-girl.net/feed/ を開く
 2. クリップボード（Ctrl+A → Ctrl+C）またはダウンロードフォルダへの保存（Ctrl+S）を自動検知
-3. bigirl_feed.xml と scratch/bigirl_feed.xml を更新し、GitHub へ git push する
+3. feed.xml と scratch/feed.xml を更新し、GitHub へ git push する
 """
 import os
 import re
@@ -20,8 +20,8 @@ if sys.platform == "win32":
         pass
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-TARGET_MAIN = os.path.join(BASE_DIR, "bigirl_feed.xml")
-TARGET_SCRATCH = os.path.join(BASE_DIR, "scratch", "bigirl_feed.xml")
+TARGET_MAIN = os.path.join(BASE_DIR, "feed.xml")
+TARGET_SCRATCH = os.path.join(BASE_DIR, "scratch", "feed.xml")
 FEED_URL = "https://bi-girl.net/feed/"
 
 
@@ -113,9 +113,9 @@ def main():
 
     print("\n🚀 GitHub へ自動同期（git commit & push）しています...")
     subprocess.run(["git", "pull", "--rebase", "origin", "master"], cwd=BASE_DIR)
-    subprocess.run(["git", "add", "bigirl_feed.xml"], cwd=BASE_DIR)
+    subprocess.run(["git", "add", "feed.xml"], cwd=BASE_DIR)
     commit_res = subprocess.run(
-        ["git", "commit", "-m", "Update bigirl_feed.xml"],
+        ["git", "commit", "-m", "Update feed.xml"],
         cwd=BASE_DIR, capture_output=True, text=True, encoding="utf-8", errors="ignore"
     )
     if "nothing to commit" in (commit_res.stdout or "") + (commit_res.stderr or ""):
@@ -132,3 +132,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
