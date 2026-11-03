@@ -73,6 +73,10 @@ class BijozukanProfileEngine:
         self.model_name = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
         self.dmm = DMMClient()
         self.wiki = WikiClient()
+        self.amazon_tag = os.getenv("AMAZON_ASSOCIATE_TAG", "blogseesaa090-22")
+        self.mgs_id = os.getenv("MGS_AFFILIATE_ID", "")
+        self.vod_affiliate_url = os.getenv("VOD_AFFILIATE_URL", "")
+        self.vod_affiliate_label = os.getenv("VOD_AFFILIATE_LABEL", "🎬 30日間無料でグラビア・人気作品を見放題で楽しむ")
         # 美女図鑑用アフィリエイトID（未設定なら DMM_AFFILIATE_ID の末尾を -993 に置換）
         base_af = os.getenv("DMM_AFFILIATE_ID", "")
         self.affiliate_id = os.getenv("BIJOZUKAN_AFFILIATE_ID") or (re.sub(r"-\d{3}$", "-993", base_af) if base_af else None)
@@ -590,6 +594,33 @@ class BijozukanProfileEngine:
             clean_cats = [c for c in categories if c not in ("裏垢", "外人", "中国")]
             if clean_cats:
                 wiki.setdefault("infobox", {}).setdefault("特徴・系統", "、".join(clean_cats))
+        if kind in ("gravure", "av"):
+            for w in valid_works:
+                if "dmm.co" in w.get("url", ""):
+                    q = urllib.parse.quote(f"{name} {re.sub(r'【[^】]*】', '', w['title'])[:25]}")
+                    w["url"] = f"https://www.amazon.co.jp/s?k={q}&tag={self.amazon_tag}"
+            if kind == "av" and self.mgs_id:
+                try:
+                    from mgs_client import MGSClient
+                    mgs_items = MGSClient().search_works(keyword=name, hits=3)
+                    for mw in mgs_items:
+                        m_img = (mw.get("imageURL") or {}).get("large", "")
+                        if m_img and self.fetch_image(m_img):
+                            valid_works.insert(0, {
+                                "title": sanitize_text(mw.get("title", "")),
+                                "date": mw.get("date", ""),
+                                "publisher": "MGS動画",
+                                "photographer": "",
+                                "genres": [],
+                                "price": "",
+                                "review_avg": None,
+                                "review_count": None,
+                                "image": m_img,
+                                "url": mw.get("affiliateURL", ""),
+                            })
+                    valid_works = valid_works[:6]
+                except Exception as e:
+                    print(f"[MGS検索スキップ] {e}")
         news = self.collect_news(name)
         posted_map = {p["name"]: p for p in self.history.get("profiles", [])}
         related = [posted_map[n] for n in costars if n in posted_map][:4]
@@ -619,6 +650,33 @@ class BijozukanProfileEngine:
             clean_cats = [c for c in categories if c not in ("裏垢", "外人", "中国")]
             if clean_cats:
                 wiki.setdefault("infobox", {}).setdefault("特徴・系統", "、".join(clean_cats))
+        if kind in ("gravure", "av"):
+            for w in valid_works:
+                if "dmm.co" in w.get("url", ""):
+                    q = urllib.parse.quote(f"{name} {re.sub(r'【[^】]*】', '', w['title'])[:25]}")
+                    w["url"] = f"https://www.amazon.co.jp/s?k={q}&tag={self.amazon_tag}"
+            if kind == "av" and self.mgs_id:
+                try:
+                    from mgs_client import MGSClient
+                    mgs_items = MGSClient().search_works(keyword=name, hits=3)
+                    for mw in mgs_items:
+                        m_img = (mw.get("imageURL") or {}).get("large", "")
+                        if m_img and self.fetch_image(m_img):
+                            valid_works.insert(0, {
+                                "title": sanitize_text(mw.get("title", "")),
+                                "date": mw.get("date", ""),
+                                "publisher": "MGS動画",
+                                "photographer": "",
+                                "genres": [],
+                                "price": "",
+                                "review_avg": None,
+                                "review_count": None,
+                                "image": m_img,
+                                "url": mw.get("affiliateURL", ""),
+                            })
+                    valid_works = valid_works[:6]
+                except Exception as e:
+                    print(f"[MGS検索スキップ] {e}")
         news = self.collect_news(name)
         posted_map = {p["name"]: p for p in self.history.get("profiles", [])}
         related = [posted_map[n] for n in costars if n in posted_map][:4]
@@ -744,6 +802,11 @@ class BijozukanProfileEngine:
 .bz-work .m{font-size:12px;color:#6b7280;text-align:left}
 .bz-work .c{font-size:13px;text-align:left;margin:8px 0}
 .bz-btn{display:block;background:linear-gradient(135deg,#ec4899,#f43f5e);color:#fff!important;text-decoration:none;font-weight:bold;font-size:14px;padding:10px;border-radius:22px;margin-top:8px}
+.bz-btn-amz{display:block;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff!important;text-decoration:none;font-weight:bold;font-size:13px;padding:9px;border-radius:22px;margin-top:6px}
+.bz-cta-box{background:linear-gradient(135deg,#fffbeb,#fef3c7);border:2px solid #f59e0b;border-radius:14px;padding:20px;margin:32px 0;text-align:center}
+.bz-cta-box h3{margin:0 0 10px;color:#92400e;font-size:18px}
+.bz-cta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px}
+.bz-cta-grid a{display:block;padding:12px 14px;border-radius:25px;font-weight:bold;font-size:14px;text-decoration:none;color:#fff!important}
 .bz-sns a{display:inline-block;background:#1f2937;color:#fff!important;text-decoration:none;padding:8px 16px;border-radius:20px;margin:4px;font-size:14px}
 .bz-news li{margin-bottom:8px;font-size:14px}
 .bz-faq dt{font-weight:bold;color:#831843;margin-top:14px}
@@ -753,6 +816,35 @@ class BijozukanProfileEngine:
 .bz-summary{background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:18px 20px}
 </style>
 """
+
+    def build_monetize_box(self, p):
+        """DMM非依存の収益化ボックス（Amazonアソシエイト・Kindle読み放題・MGS動画・A8任意リンク）を生成する"""
+        e = html.escape
+        name = p["name"]
+        q_photo = urllib.parse.quote(f"{name} 写真集")
+        q_dvd = urllib.parse.quote(f"{name} DVD")
+        q_cos = urllib.parse.quote("コスプレ 衣装 人気")
+        amz_photo = f"https://www.amazon.co.jp/s?k={q_photo}&tag={self.amazon_tag}"
+        amz_kindle = f"https://www.amazon.co.jp/kindle-dbs/hz/signup?tag={self.amazon_tag}"
+        amz_sub = f"https://www.amazon.co.jp/s?k={q_cos if p.get('kind') == 'indie' else q_dvd}&tag={self.amazon_tag}"
+        btns = [
+            f'<a href="{e(amz_photo)}" target="_blank" rel="nofollow noopener" style="background:linear-gradient(135deg,#f59e0b,#d97706)">📦 Amazonで「{e(name)}」の写真集・雑誌を見る</a>',
+            f'<a href="{e(amz_kindle)}" target="_blank" rel="nofollow noopener" style="background:linear-gradient(135deg,#2563eb,#1d4ed8)">📚 Kindle Unlimited（30日間無料）で写真集を読み放題</a>',
+        ]
+        if p.get("kind") == "av" and self.mgs_id:
+            mgs_top = f"https://www.mgstage.com/ppv/{self.mgs_id}/"
+            btns.append(f'<a href="{e(mgs_top)}" target="_blank" rel="nofollow noopener" style="background:linear-gradient(135deg,#ec4899,#be185d)">🔞 MGS動画で人気女優・独占配信作品を見る</a>')
+        else:
+            btns.append(f'<a href="{e(amz_sub)}" target="_blank" rel="nofollow noopener" style="background:linear-gradient(135deg,#059669,#047857)">🎁 Amazonで関連DVD・人気グッズを見る</a>')
+        if self.vod_affiliate_url:
+            btns.append(f'<a href="{e(self.vod_affiliate_url)}" target="_blank" rel="nofollow noopener" style="background:linear-gradient(135deg,#7c3aed,#5b21b6)">{e(self.vod_affiliate_label)}</a>')
+        return (
+            f'<div class="bz-cta-box">'
+            f'<h3>🌟 {e(name)}の写真集・関連作品を今すぐチェック！</h3>'
+            f'<div style="font-size:13px;color:#78350f">Amazon・Kindle Unlimitedならデジタル写真集やグラビア誌をすぐにお楽しみいただけます。</div>'
+            f'<div class="bz-cta-grid">{"".join(btns)}</div>'
+            f'</div>'
+        )
 
     def build_html(self, p, text, hero_url):
         e = html.escape
@@ -796,9 +888,10 @@ class BijozukanProfileEngine:
                 f'<img src="{e(w["img_hosted"])}" alt="{e(w["title"])}" loading="lazy"></a>'
                 f'<div class="t">{e(w["title"])}</div><div class="m">{e(meta)}</div>'
                 f'<div class="c">{e(comment)}</div>'
-                f'<a class="bz-btn" href="{e(w["url"])}" target="_blank" rel="nofollow noopener">{"✨ X(Twitter)でポストを見る" if p.get("kind") == "indie" else "📖 試し読み・詳細を見る"}</a></div>')
+                f'<a class="bz-btn" href="{e(w["url"])}" target="_blank" rel="nofollow noopener">{"🎬 MGS動画で詳細・サンプルを見る" if "mgstage.com" in w["url"] else ("📦 Amazonで写真集・作品を見る" if "amazon.co.jp" in w["url"] else ("✨ X(Twitter)でポストを見る" if p.get("kind") == "indie" else "📖 作品の詳細を見る"))}</a></div>')
         out.append("</div>")
 
+        out.append(self.build_monetize_box(p))
         # SNS
         sns = (p["wiki"] or {}).get("sns", [])
         if sns:
