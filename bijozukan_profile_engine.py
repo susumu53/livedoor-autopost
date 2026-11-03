@@ -807,6 +807,8 @@ class BijozukanProfileEngine:
 .bz-cta-box h3{margin:0 0 10px;color:#92400e;font-size:18px}
 .bz-cta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px}
 .bz-cta-grid a{display:block;padding:12px 14px;border-radius:25px;font-weight:bold;font-size:14px;text-decoration:none;color:#fff!important}
+.bz-a8-banners{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:16px;margin-top:18px;padding-top:16px;border-top:1px dashed #f59e0b}
+.bz-a8-banners img{max-width:100%;height:auto;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.08)}
 .bz-sns a{display:inline-block;background:#1f2937;color:#fff!important;text-decoration:none;padding:8px 16px;border-radius:20px;margin:4px;font-size:14px}
 .bz-news li{margin-bottom:8px;font-size:14px}
 .bz-faq dt{font-weight:bold;color:#831843;margin-top:14px}
@@ -838,11 +840,22 @@ class BijozukanProfileEngine:
             btns.append(f'<a href="{e(amz_sub)}" target="_blank" rel="nofollow noopener" style="background:linear-gradient(135deg,#059669,#047857)">🎁 Amazonで関連DVD・人気グッズを見る</a>')
         if self.vod_affiliate_url:
             btns.append(f'<a href="{e(self.vod_affiliate_url)}" target="_blank" rel="nofollow noopener" style="background:linear-gradient(135deg,#7c3aed,#5b21b6)">{e(self.vod_affiliate_label)}</a>')
+        a8_banners = (
+            '<div class="bz-a8-banners">'
+            '<div><a href="https://px.a8.net/svt/ejp?a8mat=4BGCFA+7N2H7E+3RN2+63WO1" rel="nofollow" target="_blank">'
+            '<img border="0" width="300" height="250" alt="" src="https://www20.a8.net/svt/bgt?aid=261103078462&wid=010&eno=01&mid=s00000017579001026000&mc=1"></a>'
+            '<img border="0" width="1" height="1" src="https://www18.a8.net/0.gif?a8mat=4BGCFA+7N2H7E+3RN2+63WO1" alt=""></div>'
+            '<div><a href="https://px.a8.net/svt/ejp?a8mat=4BGCFA+6S3XQY+9FQ+6CHB5" rel="nofollow" target="_blank">'
+            '<img border="0" width="350" height="240" alt="" src="https://www22.a8.net/svt/bgt?aid=261103078410&wid=010&eno=01&mid=s00000001223001066000&mc=1"></a>'
+            '<img border="0" width="1" height="1" src="https://www16.a8.net/0.gif?a8mat=4BGCFA+6S3XQY+9FQ+6CHB5" alt=""></div>'
+            '</div>'
+        )
         return (
             f'<div class="bz-cta-box">'
             f'<h3>🌟 {e(name)}の写真集・関連作品を今すぐチェック！</h3>'
             f'<div style="font-size:13px;color:#78350f">Amazon・Kindle Unlimitedならデジタル写真集やグラビア誌をすぐにお楽しみいただけます。</div>'
             f'<div class="bz-cta-grid">{"".join(btns)}</div>'
+            f'{a8_banners}'
             f'</div>'
         )
 

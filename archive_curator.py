@@ -523,7 +523,14 @@ class ArchiveCurator:
 
         # フッター
         html_out += f'''
-  <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 16px; padding: 30px 25px; text-align: center; margin-top: 50px;">
+  <div style="background: #fffbeb; border: 2px solid #f59e0b; border-radius: 16px; padding: 24px 20px; text-align: center; margin-top: 40px;">
+    <div style="font-weight: bold; color: #92400e; font-size: 16px; margin-bottom: 14px;">🌟 おすすめ公式サービス・人気作品はこちら</div>
+    <div style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 16px;">
+      <div><a href="https://px.a8.net/svt/ejp?a8mat=4BGCFA+7N2H7E+3RN2+63WO1" rel="nofollow" target="_blank"><img border="0" width="300" height="250" alt="" src="https://www20.a8.net/svt/bgt?aid=261103078462&wid=010&eno=01&mid=s00000017579001026000&mc=1"></a><img border="0" width="1" height="1" src="https://www18.a8.net/0.gif?a8mat=4BGCFA+7N2H7E+3RN2+63WO1" alt=""></div>
+      <div><a href="https://px.a8.net/svt/ejp?a8mat=4BGCFA+6S3XQY+9FQ+6CHB5" rel="nofollow" target="_blank"><img border="0" width="350" height="240" alt="" src="https://www22.a8.net/svt/bgt?aid=261103078410&wid=010&eno=01&mid=s00000001223001066000&mc=1"></a><img border="0" width="1" height="1" src="https://www16.a8.net/0.gif?a8mat=4BGCFA+6S3XQY+9FQ+6CHB5" alt=""></div>
+    </div>
+  </div>
+  <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 16px; padding: 30px 25px; text-align: center; margin-top: 24px;">
     <h3 style="font-size: 18px; margin: 0 0 10px; color: #1f2937;">🌟 美女図鑑の最新情報は週2回更新中！</h3>
     <p style="font-size: 14px; color: #6b7280; margin: 0 0 15px;">
       当ブログでは、毎週水曜日と日曜日にテーマ別の最新美女まとめ・ランキングをお届けしています。<br>
