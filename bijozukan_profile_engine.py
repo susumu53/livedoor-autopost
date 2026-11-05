@@ -155,11 +155,9 @@ class BijozukanProfileEngine:
         seen, candidates = set(), []
         posted = self.posted_names()
         skipped = self.history.get("skipped", {})
-        dmm_list, fanza_list, bigirl_list, indie_list = [], [], [], []
-        if source_type in ("all", "bigirl"):
-            bigirl_list = self.load_bigirl_feed()
-            if source_type == "bigirl":
-                return bigirl_list[:limit]
+        dmm_list, fanza_list, indie_list = [], [], []
+        if source_type == "bigirl":
+            return self.load_bigirl_feed()[:limit]
         if source_type in ("all", "indie"):
             indie_list = self.discover_indie_accounts()
             if source_type == "indie":
@@ -180,7 +178,7 @@ class BijozukanProfileEngine:
         for i in range(max(len(dmm_list), len(fanza_list), 1)):
             if i < len(dmm_list): merged.append(dmm_list[i])
             if i < len(fanza_list): merged.append(fanza_list[i])
-        # 4つのプール（①グラビア写真集 ②AV女優 ③国内外SNS美女 ④bi-girl）を作り、前回の投稿ジャンルと被らないようローテーションする
+        # 3つのプール（①グラビア写真集 ②AV女優 ③非商業SNS美女・コスプレイヤー）で日々の自動投稿をローテーションする
         gravure_pool, av_pool = [], []
         for source, kind, it, key in merged:
             actors = it.get("iteminfo", {}).get(key, [])
@@ -195,11 +193,15 @@ class BijozukanProfileEngine:
             (gravure_pool if kind == "gravure" else av_pool).append(entry)
 
         indie_pool = [ind for ind in indie_list if ind["name"] not in seen and not seen.add(ind["name"])]
-        bigirl_pool = [b for b in bigirl_list if b["name"] not in seen and not seen.add(b["name"])]
 
-        pools = [("gravure", gravure_pool), ("av", av_pool), ("indie", indie_pool), ("bigirl", bigirl_pool)]
-        last_kind = (self.history.get("profiles") or [{}])[-1].get("pool") or (self.history.get("profiles") or [{}])[-1].get("kind")
+        pools = [("gravure", gravure_pool), ("av", av_pool), ("indie", indie_pool)]
         order_keys = [k for k, _ in pools]
+        last_kind = None
+        for p in reversed(self.history.get("profiles") or []):
+            pk = p.get("pool") or p.get("kind")
+            if pk in order_keys:
+                last_kind = pk
+                break
         if last_kind in order_keys:
             idx = (order_keys.index(last_kind) + 1) % len(pools)
             pools = pools[idx:] + pools[:idx]
@@ -215,7 +217,7 @@ class BijozukanProfileEngine:
                         break
             if len(candidates) >= limit:
                 break
-        print(f"候補 {len(candidates)} 人（4ジャンル均等ローテーション / 掲載済み {len(posted)} 人・除外 {len(skipped)} 人を除く）")
+        print(f"候補 {len(candidates)} 人（3ジャンル均等ローテーション / 掲載済み {len(posted)} 人・除外 {len(skipped)} 人を除く）")
         return candidates
 
     def find_actor(self, name, source_type="all", x_id=None, categories=None):
