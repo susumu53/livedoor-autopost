@@ -4,3 +4,4 @@ cd /d "%~dp0"
 python update_bigirl_rss.py
 echo.
 pause
+

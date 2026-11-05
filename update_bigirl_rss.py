@@ -112,12 +112,12 @@ def main():
         print(f"   {i}. {t[:50]}")
 
     print("\n🚀 GitHub へ自動同期（git commit & push）しています...")
-    subprocess.run(["git", "pull", "--rebase", "origin", "master"], cwd=BASE_DIR)
     subprocess.run(["git", "add", "feed.xml"], cwd=BASE_DIR)
     commit_res = subprocess.run(
         ["git", "commit", "-m", "Update feed.xml"],
         cwd=BASE_DIR, capture_output=True, text=True, encoding="utf-8", errors="ignore"
     )
+    subprocess.run(["git", "pull", "--rebase", "--autostash", "origin", "master"], cwd=BASE_DIR)
     if "nothing to commit" in (commit_res.stdout or "") + (commit_res.stderr or ""):
         print("ℹ️ 前回のRSSから変更はありませんでした（最新状態です）。")
     else:

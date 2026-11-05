@@ -99,6 +99,17 @@ class BijozukanProfileEngine:
     def posted_names(self):
         return {p["name"] for p in self.history.get("profiles", [])}
 
+    def posted_x_ids(self):
+        out = set()
+        for p in self.history.get("profiles", []):
+            aid = str(p.get("actor_id", "")).strip().lower().lstrip("@")
+            if aid and not aid.isdigit():
+                out.add(aid)
+            m = re.search(r"x\.com/([A-Za-z0-9_]+)", str(p.get("dmm_url", "")))
+            if m:
+                out.add(m.group(1).lower())
+        return out
+
     # ------------------------------------------------------------------ 画像
     def fetch_image(self, url):
         """画像をダウンロードし、十分なサイズがあれば (bytes, content_type) を返す"""
@@ -227,8 +238,8 @@ class BijozukanProfileEngine:
                     return {"name": strip_decorations(e.get("name", "")) or name, "actor_id": sx, "source": "SNS指定", "kind": "indie", "x_id": sx, "categories": []}
         return None
 
-    def load_bigirl_feed(self, feed_path=None):
-        """feed.xml（または scratch/feed.xml）から候補（名前・X ID・カテゴリ）を抽出する"""
+    def load_bigirl_feed(self, feed_path=None, include_uraaka=False):
+        """feed.xml（または scratch/feed.xml）から候補（名前・X ID・カテゴリ・アイキャッチ）を抽出する"""
         paths = [feed_path] if feed_path else [
             os.path.join(BASE_DIR, "feed.xml"),
             os.path.join(BASE_DIR, "scratch", "feed.xml"),
@@ -244,6 +255,7 @@ class BijozukanProfileEngine:
         if not xml_text:
             return []
         posted = self.posted_names()
+        posted_x = self.posted_x_ids()
         skipped = self.history.get("skipped", {})
         out = []
         items = re.findall(r"<item>\s*<title>(.*?)</title>\s*<link>https?://bi-girl\.net/([^<]+)</link>(.*?)</item>", xml_text, re.S)
@@ -251,27 +263,32 @@ class BijozukanProfileEngine:
             head = re.sub(r"[（(♡].*", "", raw_title).strip()
             parts = re.split(r"\s+", head)
             name = f"{parts[0]} {parts[1]}" if len(parts) >= 2 and re.fullmatch(r"[A-Za-z]+", parts[0]) and re.fullmatch(r"[A-Za-z]+", parts[1]) else parts[0]
-            if not name or len(name) < 2 or name in posted or name in skipped:
+            x_id = slug.strip("/")
+            if not name or len(name) < 2 or name in posted or x_id.lower() in posted_x or name in skipped:
                 continue
             cats = re.findall(r"<category><!\[CDATA\[(.*?)\]\]></category>", body)
-            if "裏垢" in cats:
+            if not include_uraaka and "裏垢" in cats:
                 continue
+            m_img = re.search(r'src="(https?://[^"]+)"', body)
+            eyecatch = m_img.group(1) if m_img else ""
             pref_type = "av" if "AV女優" in cats else ("gravure" if "グラドル" in cats else "all")
-            matched = self.find_actor(name, source_type=pref_type, x_id=slug.strip("/"), categories=cats)
+            matched = self.find_actor(name, source_type=pref_type, x_id=x_id, categories=cats)
             if not matched and pref_type != "all":
-                matched = self.find_actor(name, source_type="all", x_id=slug.strip("/"), categories=cats)
+                matched = self.find_actor(name, source_type="all", x_id=x_id, categories=cats)
             if matched:
                 matched["source"] = f"bi-girl({matched['source']})"
+                matched["eyecatch"] = eyecatch
+                matched["fallback_title"] = raw_title
                 out.append(matched)
             elif slug:
-                # DMM/FANZA に作品がない非商業アカウント（ちゆう、立花繭子、小空Sora、Umeko J、Lindsey Pelas 等）も SNS ルートで候補に追加
                 out.append({
                     "name": name,
-                    "actor_id": slug.strip("/"),
+                    "actor_id": x_id,
                     "source": "bi-girl(SNS)",
                     "kind": "indie",
-                    "x_id": slug.strip("/"),
+                    "x_id": x_id,
                     "categories": cats,
+                    "eyecatch": eyecatch,
                     "fallback_title": raw_title,
                 })
         print(f"[bi-girl RSS] {len(out)} 人の候補を検出（商業＋非商業SNS）")
@@ -297,7 +314,7 @@ class BijozukanProfileEngine:
         """非商業の国内外コスプレイヤー・グラビア・SNS美女アカウントを人気順で自動発掘する"""
         posted = self.posted_names()
         skipped = self.history.get("skipped", {})
-        bad_words = ("AI", "生成", "観察", "まとめ", "相互", "裏垢", "公式", "bot", "Bot", "ニュース", "情報", "bts", "jungkook", "kpop", "army", "⁷")
+        bad_words = ("AI", "生成", "観察", "まとめ", "相互", "裏垢", "公式", "bot", "Bot", "ニュース", "情報", "bts", "jungkook", "kpop", "army", "⁷", "アイゲキ", "東京アイドル劇場", "カメコ", "撮影可")
         queries = [
             ("#コスプレイヤーさんと繋がりたい", ["コスプレイヤー"]),
             ("#グラドル自画撮り部", ["グラビア・自撮り"]),
@@ -331,7 +348,7 @@ class BijozukanProfileEngine:
         print(f"[非商業SNS発掘] {len(found)} アカウントを検出")
         return found
 
-    def collect_indie_works(self, x_id, name="", max_works=6):
+    def collect_indie_works(self, x_id, name="", max_works=6, eyecatch="", fallback_query=""):
         """特定Xアカウント（id:xxx）の直近の人気画像ポストを収集して作品カード形式にする"""
         entries = self.search_yahoo_tweets(f"id:{x_id}", popular=False)
         if not entries:
@@ -377,7 +394,45 @@ class BijozukanProfileEngine:
                 break
             if len(works) >= max_works:
                 break
-        return works, len(entries), all_hashtags[:6], display_name
+        if len(works) < 2 and eyecatch and eyecatch not in seen_urls and self.fetch_image(eyecatch):
+            seen_urls.add(eyecatch)
+            works.insert(0, {
+                "title": f"{display_name}の代表フォト・SNSショット",
+                "date": datetime.date.today().strftime("%Y-%m-%d"),
+                "publisher": f"SNS (@{x_id})",
+                "photographer": "注目ショット",
+                "genres": all_hashtags[:4],
+                "price": "",
+                "review_avg": None,
+                "review_count": None,
+                "image": eyecatch,
+                "url": f"https://x.com/{x_id}",
+            })
+        if len(works) < 4 and (fallback_query or name):
+            q = fallback_query or name
+            try:
+                r = requests.get("https://search.yahoo.co.jp/image/search", params={"p": q}, headers=UA, timeout=10)
+                y_urls = list(dict.fromkeys(re.findall(r"https://msp\.c\.yimg\.jp/images/v2/[A-Za-z0-9/_.-]+", r.text)))
+                for idx_u, yu in enumerate(y_urls[:12], 1):
+                    if yu not in seen_urls and self.fetch_image(yu):
+                        seen_urls.add(yu)
+                        works.append({
+                            "title": f"{display_name} 注目グラビア・SNSショット #{len(works) + 1}",
+                            "date": datetime.date.today().strftime("%Y-%m-%d"),
+                            "publisher": f"SNS (@{x_id})",
+                            "photographer": "話題ショット",
+                            "genres": all_hashtags[:4],
+                            "price": "",
+                            "review_avg": None,
+                            "review_count": None,
+                            "image": yu,
+                            "url": f"https://x.com/{x_id}",
+                        })
+                        if len(works) >= max_works:
+                            break
+            except Exception as e:
+                print(f"[Yahoo画像検索補完スキップ] {e}")
+        return works, max(len(entries), len(works)), all_hashtags[:6], display_name
 
     def discover_candidates_legacy(self, limit=60):
         """DMM.com 写真集の新着・ランキングから出演者候補を集める"""
@@ -556,11 +611,13 @@ class BijozukanProfileEngine:
             print(f"[画像女性判定エラー] {e}")
         return False, "AI画像判定失敗"
 
-    def build_profile(self, name, actor_id, kind="gravure", x_id=None, categories=None):
+    def build_profile(self, name, actor_id, kind="gravure", x_id=None, categories=None, eyecatch="", fallback_query=""):
         """1人分の素材を集めて品質チェック。合格なら dict、不合格なら (None, 理由)"""
         fanza_meta = {}
         if kind == "indie":
-            works, total_works, hashtags, detected_name = self.collect_indie_works(x_id or actor_id, name=name)
+            works, total_works, hashtags, detected_name = self.collect_indie_works(
+                x_id or actor_id, name=name, eyecatch=eyecatch, fallback_query=fallback_query
+            )
             costars = {}
             if hashtags:
                 fanza_meta["よく使うハッシュタグ"] = " / ".join(f"#{h}" for h in hashtags[:5])
@@ -570,6 +627,19 @@ class BijozukanProfileEngine:
         else:
             works, total_works, costars = self.collect_works(actor_id, name=name)
         valid_works = [w for w in works if self.fetch_image(w["image"])]
+        if len(valid_works) < 2 and x_id:
+            indie_works, indie_total, hashtags, _ = self.collect_indie_works(
+                x_id, name=name, eyecatch=eyecatch, fallback_query=fallback_query
+            )
+            for iw in indie_works:
+                if self.fetch_image(iw["image"]) and all(iw["image"] != vw["image"] for vw in valid_works):
+                    valid_works.append(iw)
+                    if len(valid_works) >= 6:
+                        break
+            total_works = max(total_works, indie_total)
+            if hashtags:
+                fanza_meta.setdefault("よく使うハッシュタグ", " / ".join(f"#{h}" for h in hashtags[:5]))
+            fanza_meta.setdefault("公式Xアカウント", f"@{x_id}")
         if len(valid_works) < 2:
             return None, f"有効な作品画像が不足 ({len(valid_works)}件)"
         if kind == "indie" and not categories:
@@ -744,7 +814,7 @@ class BijozukanProfileEngine:
             import google.generativeai as genai
             genai.configure(api_key=self.gemini_api_key)
             model = genai.GenerativeModel(self.model_name)
-            raw = model.generate_content(prompt, request_options={"timeout": 180}).text.strip()
+            raw = model.generate_content(prompt, request_options={"timeout": 35}).text.strip()
             m = re.search(r"```(?:json)?\s*(\{.*\})\s*```", raw, re.S)
             data = json.loads(m.group(1) if m else raw)
             for k, v in fallback.items():
@@ -754,30 +824,60 @@ class BijozukanProfileEngine:
                 data["works"] += fallback["works"][len(data["works"]):]
             return data
         except Exception as e:
-            print(f"[Gemini生成エラー] {e} → テンプレート文章を使用")
+            if "429" in str(e) or "ResourceExhausted" in str(e) or "quota" in str(e).lower():
+                self.gemini_api_key = None
+            print(f"[Gemini生成エラー] {str(e)[:80]} → テンプレート文章を使用")
             return fallback
 
     def _fallback_text(self, p):
         name = p["name"]
+        kind = p.get("kind", "gravure")
         info = (p["wiki"] or {}).get("infobox", {})
-        genre = info.get("ジャンル") or "グラビア"
+        cats_str = info.get("特徴・系統") or info.get("ジャンル") or ("コスプレ・グラビア" if kind == "indie" else ("映像・グラビア" if kind == "av" else "グラビア"))
+        x_acc = info.get("公式Xアカウント") or ""
         latest = p["works"][0]
-        intro = (p["wiki"] or {}).get("summary") or f"{name}さんは、写真集を中心に活躍する注目の美女です。"
-        intro += f" 最新作は{latest['date'][:4]}年発売の『{latest['title']}』。DMMブックスでは{p['total_works']}作品の写真集が配信されています。"
+        raw_sum = re.sub(r"^\s*\|.*$", "", (p["wiki"] or {}).get("summary") or "", flags=re.M).strip()
+        if kind == "indie":
+            intro = raw_sum or f"{name}さんは、SNSやコスプレ・グラビア界隈で高い注目を集めている人気モデル・インフルエンサーです。"
+            intro += f" 抜群のスタイルと表現力豊かなビジュアルで多くのフォロワーを魅了しており、{x_acc or '公式SNS'}で公開される最新ショットは毎回大きな反響を呼んでいます。"
+            catch = f"{cats_str}で話題沸騰の注目美女"
+            charms = [
+                {"title": "圧倒的なビジュアルとスタイル", "body": f"{name}さんは、{cats_str}の魅力が際立つ抜群のプロポーションと洗練されたビジュアルで、SNSでもひと際強い存在感を放っています。"},
+                {"title": "こだわり抜かれた衣装と世界観", "body": "投稿ごとに衣装やヘアメイク、ポージングの完成度が非常に高く、クールな表情からキュートな笑顔まで多彩なギャップを楽しめるのが魅力です。"},
+                {"title": "SNSでの高い発信力と人気", "body": f"{x_acc or '公式SNS'}を中心に多数のフォトや自撮りショットを発信しており、国内外のファンから熱い支持を集めています。"},
+            ]
+            career = (p["wiki"] or {}).get("extract", "")[:300] or f"{name}さんはSNS（{x_acc or 'X・Instagram'}）を中心にコスプレやグラビアフォトを精力的に発信し、多くの支持を集めています。"
+            works_desc = [f"{w['publisher']}で公開された話題の注目ショットです。（{w['photographer']}）" for w in p["works"]]
+            faq = [
+                {"q": f"{name}さんの公式SNSは？", "a": f"公式X（{x_acc or name}）などで最新のフォトや活動情報をチェックできます。"},
+                {"q": f"{name}さんの魅力・特徴は？", "a": f"{cats_str}としての高い表現力と抜群のスタイルが大きな魅力です。"},
+            ]
+            summary = f"{name}さんの最新ショットや活動情報は、本記事内のリンクおよび公式SNSからぜひチェックしてみてください。"
+        else:
+            work_word = "出演作品" if kind == "av" else "写真集"
+            intro = raw_sum or f"{name}さんは、{cats_str}を中心に高い人気を誇る注目の美女です。"
+            intro += f" 注目作『{latest['title'][:40]}』をはじめ、これまでに{p['total_works']}作品以上の{work_word}がリリースされており、幅広いファン層から支持を集めています。"
+            catch = f"{cats_str}で圧倒的な存在感を放つ美女"
+            charms = [
+                {"title": "作品ごとに変わる多彩な表情", "body": f"{name}さんの{work_word}は、作品ごとにテーマやシチュエーションが異なり、ナチュラルな素顔から大人っぽい表情まで幅広く楽しめるのが魅力です。"},
+                {"title": "豊富なリリース実績", "body": f"これまでに{p['total_works']}作品以上がリリースされており、安定した人気と高い支持を集め続けています。"},
+                {"title": "SNSやメディアでの注目度", "body": f"{x_acc or '公式SNS'}での発信やメディア出演でも話題を集めており、今後の新作リリースにも期待が高まっています。"},
+            ]
+            career = (p["wiki"] or {}).get("extract", "")[:300] or f"{name}さんは{cats_str}の分野で精力的に活動し、多数の人気作品をリリースしています。"
+            works_desc = [f"{w['publisher'] or '公式レーベル'}から{w['date'][:7].replace('-', '年') if w['date'] else '近年'}にリリースされた注目作です。" for w in p["works"]]
+            faq = [
+                {"q": f"{name}さんの注目{work_word}は？", "a": f"『{latest['title'][:45]}』（{latest['date']}）などが高い注目を集めています。"},
+                {"q": f"{name}さんの公式SNSは？", "a": f"{x_acc or '公式SNSアカウント'}にて最新情報やオフショットが発信されています。"},
+            ]
+            summary = f"{name}さんの最新情報や人気{work_word}は、本記事の作品リンクや公式SNSからチェックしてみてください。"
         return {
-            "catch": f"{genre}界で輝く{name}",
+            "catch": catch,
             "intro": intro,
-            "charms": [
-                {"title": "作品ごとに変わる表情", "body": f"{name}さんの写真集は、作品ごとにテーマや撮影地が異なり、さまざまな表情を楽しめるのが魅力です。"},
-                {"title": "豊富なリリース", "body": f"これまでに{p['total_works']}作品がリリースされており、継続的に新作が届けられています。"},
-                {"title": "幅広い出版社から刊行", "body": "複数の出版社から作品が刊行されていることも、高い支持を集めている証拠です。"},
-            ],
-            "career": (p["wiki"] or {}).get("extract", "")[:300] or f"{name}さんは写真集を中心に活動しています。",
-            "works": [f"{w['publisher'] or '出版社'}から{w['date'][:7].replace('-', '年')}月に発売された作品です。" for w in p["works"]],
-            "faq": [
-                {"q": f"{name}さんの最新写真集は？", "a": f"最新作は『{latest['title']}』（{latest['date']}発売）です。"},
-            ],
-            "summary": f"{name}さんの最新情報や新作写真集は、本記事の作品リンクや公式SNSからチェックしてみてください。",
+            "charms": charms,
+            "career": career,
+            "works": works_desc,
+            "faq": faq,
+            "summary": summary,
         }
 
     # ------------------------------------------------------------------ HTML
@@ -978,7 +1078,11 @@ class BijozukanProfileEngine:
         profile = None
         for c in candidates[:max_tries]:
             print(f"--- 候補: {c['name']}（{c['source']} / id={c['actor_id']}）")
-            profile, reason = self.build_profile(c["name"], c["actor_id"], kind=c.get("kind", "gravure"), x_id=c.get("x_id"), categories=c.get("categories"))
+            profile, reason = self.build_profile(
+                c["name"], c["actor_id"], kind=c.get("kind", "gravure"),
+                x_id=c.get("x_id"), categories=c.get("categories"),
+                eyecatch=c.get("eyecatch", ""), fallback_query=c.get("fallback_query", "")
+            )
             if profile:
                 profile["pool"] = c.get("pool") or c.get("kind", "gravure")
                 break
