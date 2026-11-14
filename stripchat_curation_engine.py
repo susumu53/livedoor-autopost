@@ -10,6 +10,7 @@ import json
 import os
 import re
 import sys
+import urllib.parse
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 
@@ -108,6 +109,21 @@ CAST_STYLE_MAP = {
     "couple": "カップル",
     "couples": "カップル",
 }
+
+SNS_PLATFORMS = [
+    ("x.com/", "𝕏 公式X (旧Twitter)", "#0f172a"),
+    ("twitter.com/", "𝕏 公式X (旧Twitter)", "#0f172a"),
+    ("instagram.com/", "📸 公式Instagram", "#e1306c"),
+    ("tiktok.com/@", "🎵 公式TikTok", "#111827"),
+    ("youtube.com/", "▶️ 公式YouTube", "#dc2626"),
+    ("snapchat.com/", "👻 公式Snapchat", "#eab308"),
+    ("t.me/", "✈️ 公式Telegram", "#0284c7"),
+    ("linktr.ee/", "🔗 公式SNSまとめリンク", "#16a34a"),
+    ("link.me/", "🔗 公式SNSまとめリンク", "#16a34a"),
+    ("lit.link/", "🔗 公式SNSまとめリンク", "#16a34a"),
+    ("throne.com/", "🎁 公式Throne", "#7c3aed"),
+    ("lovense.com/wish-list/", "💝 公式ウィッシュリスト", "#db2777"),
+]
 
 LABEL_MAP = {
     "bodyTypeAverage": "普通・バランス型",
@@ -516,87 +532,82 @@ class StripchatCurationEngine:
                 pass
         return tweets, fallback_imgs
 
-    def search_external_video_embeds(self, username):
-        """外部アダルト動画サイト（TokyoMotion / xHamster / XVIDEOS）から該当パフォーマーの埋め込み動画を探す"""
-        found = []
-        seen_urls = set()
+    def extract_sns_links(self, username, prof_state):
+        """Stripchat公式プロフィール・Yahoo!検索から各ライバーの公式SNSおよび検索リンクを抽出する"""
+        links = []
+        seen = set()
         norm_u = re.sub(r"[^a-z0-9]", "", username.lower())
-        if len(norm_u) < 4:
-            return found
+        blocked_paths = ("/status/", "/search", "/hashtag", "/explore", "/p/", "/reel/", "/discover", "/popular", "/tag")
 
-        def add_item(site, raw_title, embed_url, watch_url):
-            if embed_url in seen_urls or len(found) >= 2:
+        def add_direct_link(url):
+            clean_u = re.sub(r"[\\\"\'\),\s]+$", "", url.strip())
+            clean_u = re.sub(r"\?(?:xtok|_?utm_[^=]+).*$", "", clean_u)
+            low_u = clean_u.lower()
+            if any(bad in low_u for bad in blocked_paths):
                 return
-            seen_urls.add(embed_url)
-            safe_t = clean_stripchat_text(raw_title, max_len=55) or f"{username} 配信アーカイブ ({site})"
-            found.append({
-                "site": site,
-                "title": safe_t,
-                "embed_url": embed_url,
-                "watch_url": watch_url,
-            })
-
-        try:
-            r_tm = requests.get(
-                "https://www.tokyomotion.net/search",
-                params={"search_query": username, "search_type": "videos"},
-                headers=HTML_HEADERS,
-                timeout=10,
-            )
-            for vid, slug in re.findall(r'href="/video/(\d+)/([^"]*)"', r_tm.text):
-                if norm_u in re.sub(r"[^a-z0-9]", "", slug.lower()):
-                    add_item(
-                        "TokyoMotion",
-                        slug.replace("-", " "),
-                        f"https://www.tokyomotion.net/embed/{vid}",
-                        f"https://www.tokyomotion.net/video/{vid}/{slug}",
-                    )
+            matched_meta = None
+            for dom, p_label, p_bg in SNS_PLATFORMS:
+                if dom in low_u:
+                    matched_meta = (dom, p_label, p_bg)
                     break
-        except Exception as e:
-            print(f"[外部動画検索エラー TokyoMotion] {username}: {e}")
+            if not matched_meta:
+                return
+            dom, p_label, p_bg = matched_meta
+            key = re.sub(r"^https?://(?:www\.)?", "", low_u).rstrip("/")
+            if key in seen:
+                return
+            seen.add(key)
+            label = p_label
+            if dom not in ("lovense.com/wish-list/", "snapchat.com/"):
+                handle_m = re.search(r"/(@?[A-Za-z0-9_.\-]+)$", clean_u.rstrip("/"))
+                if handle_m:
+                    label = f"{p_label} ({handle_m.group(1)})"
+            links.append({"url": clean_u, "label": label, "bg": p_bg, "is_direct": True})
 
-        if len(found) < 2:
+        # 1. Stripchat公式プロフィール内データ (viewCam / userPanels / profile / profilePage)
+        if prof_state:
+            blob = json.dumps(
+                {k: prof_state.get(k) for k in ("viewCam", "userPanels", "profile", "profilePage")},
+                ensure_ascii=False,
+            )
+            for u in re.findall(r"https?://[^\s\"'<>\\]+", blob):
+                add_direct_link(u)
+
+        # 2. Yahoo!検索による同一ハンドル名の公式SNS照合 (誤一致防止のため8文字以上の完全一致に限定)
+        if len(norm_u) >= 8:
             try:
-                r_xh = requests.get(
-                    f"https://jp.xhamster.com/search/stripchat+{username}",
+                q = f'"{username}" (site:x.com OR site:instagram.com OR site:tiktok.com OR site:linktr.ee OR site:link.me)'
+                r = requests.get(
+                    "https://search.yahoo.co.jp/search",
+                    params={"p": q, "ei": "UTF-8"},
                     headers=HTML_HEADERS,
                     timeout=10,
                 )
-                for full_u, slug, vid in re.findall(
-                    r'href="(https://jp\.xhamster\.com/videos/([^"]+)-([a-zA-Z0-9]+))"', r_xh.text
+                target_ids = {username.lower(), f"xxx{username.lower()}"}
+                for u in re.findall(
+                    r"https?://(?:www\.)?(?:x\.com|twitter\.com|instagram\.com|tiktok\.com|linktr\.ee|link\.me)/@?[A-Za-z0-9_.\-]+",
+                    r.text,
                 ):
-                    if norm_u in re.sub(r"[^a-z0-9]", "", slug.lower()):
-                        add_item(
-                            "xHamster",
-                            slug.replace("-", " "),
-                            f"https://jp.xhamster.com/embed/{vid}",
-                            full_u,
-                        )
-                        break
+                    tail = u.rstrip("/").split("/")[-1].lstrip("@").lower()
+                    if tail in target_ids:
+                        add_direct_link(u)
             except Exception as e:
-                print(f"[外部動画検索エラー xHamster] {username}: {e}")
+                print(f"[SNSリンク検索スキップ] {username}: {e}")
 
-        if len(found) < 2:
-            try:
-                r_xv = requests.get(
-                    "https://www.xvideos.com/",
-                    params={"k": f"stripchat {username}"},
-                    headers=HTML_HEADERS,
-                    timeout=10,
-                )
-                for path, vid, slug in re.findall(r'href="(/video\.([a-z0-9]+)/([^"]+))"', r_xv.text):
-                    if norm_u in re.sub(r"[^a-z0-9]", "", slug.lower()):
-                        add_item(
-                            "XVIDEOS",
-                            slug.replace("_", " "),
-                            f"https://www.xvideos.com/embedframe/{vid}",
-                            f"https://www.xvideos.com{path}",
-                        )
-                        break
-            except Exception as e:
-                print(f"[外部動画検索エラー XVIDEOS] {username}: {e}")
-
-        return found
+        # 3. 全キャスト共通のSNS検索・反響確認ショートカットリンク
+        links.append({
+            "url": f"https://x.com/search?q={urllib.parse.quote(username)}",
+            "label": f"𝕏 X(Twitter)で「{username}」を検索",
+            "bg": "#475569",
+            "is_direct": False,
+        })
+        links.append({
+            "url": f"https://search.yahoo.co.jp/realtime/search?p={urllib.parse.quote('Stripchat ' + username)}",
+            "label": "🔍 SNSリアルタイム反響を見る",
+            "bg": "#64748b",
+            "is_direct": False,
+        })
+        return links
 
     def upload_image_safe(self, img_url):
         """画像をダウンロードし、WebP/PNG等もJPEGへ変換してlivedoor.blogimg.jpへアップロードする"""
@@ -750,6 +761,7 @@ class StripchatCurationEngine:
         for si in search_imgs:
             if si not in raw_photos:
                 raw_photos.append(si)
+        sns_links = self.extract_sns_links(uname, prof_state)
 
         hosted_images = []
         for u in raw_photos[:12]:
@@ -805,6 +817,7 @@ class StripchatCurationEngine:
             "description": clean_stripchat_text(model.get("description") or "", max_len=140),
             "images": hosted_images,
             "videos": videos_list[:4],
+            "sns_links": sns_links,
             "sns_tweets": sns_tweets[:2],
             "source_label": candidate.get("source_label", ""),
         }, None
@@ -919,6 +932,10 @@ class StripchatCurationEngine:
 .sc-comment{background:#fdf2f8;border-left:4px solid #ec4899;border-radius:8px;padding:13px 16px;font-size:14px;margin-bottom:14px}
 .sc-archive-box{background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:13px 16px;margin-bottom:14px;font-size:13px}
 .sc-archive-box ul{margin:6px 0 0;padding-left:18px}
+.sc-sns-box{background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px 15px;margin-bottom:14px}
+.sc-sns-title{font-size:13.5px;font-weight:bold;color:#0369a1;margin-bottom:8px}
+.sc-sns-list{display:flex;flex-wrap:wrap;gap:8px}
+.sc-sns-btn{display:inline-flex;align-items:center;padding:6px 12px;border-radius:18px;color:#fff!important;text-decoration:none;font-size:12.5px;font-weight:bold;text-shadow:0 1px 2px rgba(0,0,0,.25)}
 .sc-btn{display:block;background:linear-gradient(135deg,#ec4899,#f43f5e);color:#fff!important;text-decoration:none;font-weight:bold;text-align:center;padding:12px 16px;border-radius:26px;font-size:15px}
 .sc-monetize{background:linear-gradient(135deg,#fffbeb,#fef3c7);border:2px solid #f59e0b;border-radius:14px;padding:20px;margin:30px 0;text-align:center}
 .sc-monetize-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px}
@@ -967,7 +984,35 @@ class StripchatCurationEngine:
             ])
             if m["interests"]:
                 rows.append(("趣味・特徴", e("、".join(m["interests"]))))
+
+            sns_links = m.get("sns_links") or []
+            direct_sns = [s for s in sns_links if s.get("is_direct")]
+            if direct_sns:
+                sns_row_val = " / ".join(
+                    f'<a href="{e(s["url"])}" target="_blank" rel="nofollow noopener">{e(s["label"])}</a>'
+                    for s in direct_sns
+                )
+            elif sns_links:
+                s0 = sns_links[0]
+                sns_row_val = f'<a href="{e(s0["url"])}" target="_blank" rel="nofollow noopener">{e(s0["label"])}</a>'
+            else:
+                sns_row_val = "—"
+            rows.append(("公式SNS / 関連リンク", sns_row_val))
             table_rows = "".join(f"<tr><th>{k}</th><td>{v}</td></tr>" for k, v in rows)
+
+            sns_box_html = ""
+            if sns_links:
+                sns_btns = "".join(
+                    f'<a href="{e(s["url"])}" class="sc-sns-btn" style="background:{s["bg"]};" '
+                    f'target="_blank" rel="nofollow noopener">{e(s["label"])}</a>'
+                    for s in sns_links
+                )
+                sns_box_html = (
+                    '<div class="sc-sns-box">'
+                    '<div class="sc-sns-title">🔗 公式SNS・関連リンク</div>'
+                    f'<div class="sc-sns-list">{sns_btns}</div>'
+                    '</div>'
+                )
 
             archive_items = []
             for v in m["videos"]:
@@ -1008,6 +1053,7 @@ class StripchatCurationEngine:
     <table class="sc-table">{table_rows}</table>
     <div class="sc-comment">{self._build_commentary(m)}</div>
     {archive_html}
+    {sns_box_html}
     <a href="{e(m['profile_url'])}" class="sc-btn" target="_blank" rel="nofollow noopener">
       ✨ 「{e(m['username'])}」の公式プロフィール＆公開アルバムを確認する ＞
     </a>
