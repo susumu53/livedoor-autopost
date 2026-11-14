@@ -17,29 +17,16 @@ class LivedoorClient:
             
         self.endpoint = f"https://livedoor.blogcms.jp/atompub/{self.blog_id}/article"
 
-    def post_article(self, title, content, categories=None, publish=True):
-        """
-        ライブドアブログに記事を投稿する
-        
-        :param title: 記事のタイトル
-        :param content: HTML形式の記事本文
-        :param categories: リスト形式のカテゴリ名の配列
-        :param publish: Trueで公開、Falseで下書き
-        :return: 投稿された記事のレスポンス（成功時）またはNone
-        """
+    def _build_entry_xml(self, title, content, categories=None, publish=True):
+        """AtomPub 投稿・更新用の XML ペイロードを構築する"""
         draft_value = "no" if publish else "yes"
-        
-        # XMLで許可されない文字のエスケープ
         escaped_title = saxutils.escape(title)
-        
-        # AtomPub XMLの構築
         category_tags = ""
         if categories:
             for cat in categories:
                 escaped_cat = saxutils.escape(cat)
                 category_tags += f'<category term="{escaped_cat}" />\n'
-                
-        xml_template = f'''<?xml version="1.0" encoding="utf-8"?>
+        return f'''<?xml version="1.0" encoding="utf-8"?>
 <entry xmlns="http://www.w3.org/2005/Atom"
        xmlns:app="http://www.w3.org/2007/app">
   <title>{escaped_title}</title>
@@ -51,6 +38,18 @@ class LivedoorClient:
     <app:draft>{draft_value}</app:draft>
   </app:control>
 </entry>'''
+
+    def post_article(self, title, content, categories=None, publish=True):
+        """
+        ライブドアブログに記事を投稿する
+        
+        :param title: 記事のタイトル
+        :param content: HTML形式の記事本文
+        :param categories: リスト形式のカテゴリ名の配列
+        :param publish: Trueで公開、Falseで下書き
+        :return: 投稿された記事のレスポンス（成功時）またはNone
+        """
+        xml_template = self._build_entry_xml(title, content, categories=categories, publish=publish)
 
         try:
             print(f"ライブドアブログへ投稿中... [{title}]")
@@ -71,6 +70,29 @@ class LivedoorClient:
                 
         except Exception as e:
             print(f"エラーが発生しました: {e}")
+            return None
+
+    def update_article(self, article_id, title, content, categories=None, publish=True):
+        """既存の記事を指定した内容で上書き更新する"""
+        xml_template = self._build_entry_xml(title, content, categories=categories, publish=publish)
+        article_url = f"{self.endpoint}/{article_id}"
+        try:
+            print(f"ライブドアブログ記事を更新中... [ID: {article_id}] [{title}]")
+            response = requests.put(
+                article_url,
+                auth=HTTPBasicAuth(self.livedoor_id, self.api_key),
+                data=xml_template.encode('utf-8'),
+                headers={'Content-Type': 'application/atom+xml;type=entry'},
+                timeout=25,
+            )
+            if response.status_code in [200, 201]:
+                print(f"更新成功！ ステータスコード: {response.status_code}")
+                return response.text or "OK"
+            print(f"更新失敗: ステータスコード {response.status_code}")
+            print(f"レスポンス: {response.text}")
+            return None
+        except Exception as e:
+            print(f"更新エラーが発生しました: {e}")
             return None
 
     def upload_image(self, image_source, content_type="image/jpeg"):
