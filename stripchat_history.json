@@ -6,7 +6,13 @@
     "Korean_Zia",
     "maonyan6",
     "tw_angelyunana",
-    "Koreanowner"
+    "Koreanowner",
+    "winter11",
+    "lunagirl13",
+    "KiraKayleigh1",
+    "Ivy_Bae",
+    "ORLA94",
+    "xiao-Lin"
   ],
   "skipped_usernames": {
     "LinaFlowerss": "韓国語・韓国籍の根拠不足 (langs=['en', 'de', 'fr'])"
@@ -26,6 +32,25 @@
         "Koreanowner"
       ],
       "posted_at": "2026-11-15T04:42:13"
+    },
+    {
+      "mode": "top",
+      "division": "all",
+      "vol": 1,
+      "title": "【世界人気キャスト図鑑 Vol.1】女性5部門（アジア・北米・南米・欧州・アフリカ）＆カップル上位6組まとめ｜プロフィール＆アーカイブ照合",
+      "url": "https://bijozukan.doorblog.jp/archives/17999492.html",
+      "count": 6,
+      "usernames": [
+        "winter11",
+        "lunagirl13",
+        "KiraKayleigh1",
+        "Ivy_Bae",
+        "ORLA94",
+        "xiao-Lin"
+      ],
+      "posted_at": "2026-11-15T05:06:13"
     }
-  ]
+  ],
+  "current_top_vol": 2,
+  "top_division_idx": 0
 }

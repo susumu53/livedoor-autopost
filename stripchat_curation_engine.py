@@ -60,6 +60,55 @@ COUNTRY_META = {
     "kr": {"label": "🇰🇷 韓国", "short": "韓国", "badge_bg": "#3b82f6"},
 }
 
+TOP_DIVISION_ORDER = ["as", "na", "sa", "eu", "af", "couples"]
+
+TOP_DIVISIONS = {
+    "as": {
+        "url": "https://jp.stripchat.com/top/girls/current-month-asia-and-pacific",
+        "label": "🌏 女性：アジア&太平洋部門",
+        "short": "アジア&太平洋",
+        "badge_bg": "#ef4444",
+    },
+    "na": {
+        "url": "https://jp.stripchat.com/top/girls/current-month-north-america",
+        "label": "🗽 女性：北アメリカ部門",
+        "short": "北アメリカ",
+        "badge_bg": "#2563eb",
+    },
+    "sa": {
+        "url": "https://jp.stripchat.com/top/girls/current-month-south-america",
+        "label": "🌴 女性：南アメリカ部門",
+        "short": "南アメリカ",
+        "badge_bg": "#10b981",
+    },
+    "eu": {
+        "url": "https://jp.stripchat.com/top/girls/current-month-europe",
+        "label": "🏰 女性：ヨーロッパ部門",
+        "short": "ヨーロッパ",
+        "badge_bg": "#8b5cf6",
+    },
+    "af": {
+        "url": "https://jp.stripchat.com/top/girls/current-month-africa",
+        "label": "🌍 女性：アフリカ部門",
+        "short": "アフリカ",
+        "badge_bg": "#d97706",
+    },
+    "couples": {
+        "url": "https://jp.stripchat.com/top/couples/current-month",
+        "label": "💑 カップル部門",
+        "short": "カップル",
+        "badge_bg": "#ec4899",
+    },
+}
+
+CAST_STYLE_MAP = {
+    "female": "女性ソロ",
+    "females": "女性ペア・グループ",
+    "maleFemale": "男女カップル",
+    "couple": "カップル",
+    "couples": "カップル",
+}
+
 LABEL_MAP = {
     "bodyTypeAverage": "普通・バランス型",
     "bodyTypeMedium": "標準・グラマー",
@@ -82,6 +131,13 @@ LABEL_MAP = {
     "zh": "中国語",
     "ko": "韓国語",
     "en": "英語",
+    "es": "スペイン語",
+    "fr": "フランス語",
+    "pt": "ポルトガル語",
+    "de": "ドイツ語",
+    "it": "イタリア語",
+    "ru": "ロシア語",
+    "ar": "アラビア語",
 }
 
 SAFE_INTERESTS_MAP = {
@@ -142,11 +198,12 @@ STRIPCHAT_NG_WORDS = [
     "手コキ", "バイブ", "ローター", "オナニー", "ちんぽ", "まんこ", "エロ配信", "ノーパン",
     "肉棒", "插入", "喷水", "骚逼", "高潮", "自慰", "口交", "内射", "阴茎", "阴道", "内窥镜", "内窺鏡",
     "做爱", "打飞机", "丝袜诱惑", "露点", "裸聊", "大尺度", "情色", "淫水", "小穴", "濕濕", "哪裡舔", "舔",
+    "裸体", "诱惑", "大屁股", "菊花", "骚", "绿帽", "小便池", "男厕", "阴蒂", "乳头", "合集",
     "분수", "자위", "야동", "보지", "자지", "섹스", "노출",
     "fuck", "cock", "dick", "pussy", "cum", "squirt", "blowjob", "deepthroat",
     "handjob", "footjob", "titty", "anal", "bdsm", "bondage", "fisting", "dp",
     "gangbang", "jerk", "cuckold", "facial", "rimming", "orgasm", "masturbate",
-    "sex", "nude", "naked", "porn", "xxx", "erotic", "boob", "asshole",
+    "dildo", "vibrator", "sex", "nude", "naked", "porn", "xxx", "erotic", "boob", "asshole",
 ]
 
 
@@ -184,6 +241,8 @@ class StripchatCurationEngine:
                 with open(HISTORY_FILE, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     data.setdefault("current_vol", 1)
+                    data.setdefault("current_top_vol", 1)
+                    data.setdefault("top_division_idx", 0)
                     data.setdefault("posted_usernames", [])
                     data.setdefault("skipped_usernames", {})
                     data.setdefault("posted_articles", [])
@@ -192,6 +251,8 @@ class StripchatCurationEngine:
                 print(f"[履歴読み込みエラー] {e}")
         return {
             "current_vol": 1,
+            "current_top_vol": 1,
+            "top_division_idx": 0,
             "posted_usernames": [],
             "skipped_usernames": {},
             "posted_articles": [],
@@ -334,6 +395,74 @@ class StripchatCurationEngine:
             print(f"[候補抽出 {COUNTRY_META[rk]['label']}] {len(pool[rk])}名: {[c['username'] for c in pool[rk]]}")
         return pool
 
+    def _pick_top_division_candidates(self, div_key, posted_set, skipped_set, target=30):
+        """人気キャスト（女性5部門・カップル部門）の月間ランキングページから未掲載候補を抽出する"""
+        meta = TOP_DIVISIONS[div_key]
+        state = self._extract_preloaded_state(meta["url"])
+        if not state:
+            return []
+
+        items = []
+        for qval in (state.get("topModels") or {}).get("queries", {}).values():
+            cand_items = (qval.get("data") or {}).get("items") or []
+            if cand_items:
+                items = cand_items
+                break
+
+        allowed_genders = ("female", "females", "maleFemale", "couple", "couples")
+        found = []
+        seen = set()
+        for idx, it in enumerate(items, 1):
+            m = it.get("model") or {}
+            uname = (m.get("username") or "").strip()
+            if not uname or has_unsafe_word(uname):
+                continue
+            key = uname.lower()
+            if key in seen or key in posted_set or key in skipped_set:
+                continue
+            gender = m.get("gender") or m.get("broadcastGender") or "female"
+            if gender not in allowed_genders:
+                continue
+            seen.add(key)
+            pos = int(it.get("position") or idx)
+            pts = int(it.get("stripPoints") or 0)
+            best = int(m.get("topBestPlace") or pos)
+            found.append({
+                "username": uname,
+                "region_key": div_key,
+                "division_key": div_key,
+                "country": (m.get("country") or "").lower(),
+                "viewers_count": pts,
+                "rank_position": pos,
+                "strip_points": pts,
+                "top_best_place": best,
+                "avatar_url": m.get("avatarUrl") or "",
+                "preview_url": m.get("previewUrlThumbBig") or m.get("previewUrlThumbSmall") or "",
+                "source_label": f"{meta['short']} {pos}位 ({pts:,}pt)",
+                "is_live": bool(m.get("isLive")),
+            })
+            if len(found) >= target:
+                break
+        return found
+
+    def fetch_top_cast_candidates(self, divisions, per_division=30):
+        """指定した人気キャスト部門ごとの候補マップを返す"""
+        history = self.load_history()
+        posted_set = {u.lower() for u in history.get("posted_usernames", [])}
+        skipped_set = {u.lower() for u in history.get("skipped_usernames", {})}
+
+        with ThreadPoolExecutor(max_workers=min(6, max(1, len(divisions)))) as pool:
+            futures = {
+                dk: pool.submit(self._pick_top_division_candidates, dk, posted_set, skipped_set, per_division)
+                for dk in divisions
+            }
+            out = {dk: futures[dk].result() for dk in divisions}
+
+        for dk in divisions:
+            cands = out.get(dk, [])
+            print(f"[人気候補 {TOP_DIVISIONS[dk]['label']}] {len(cands)}組: {[c['username'] for c in cands[:5]]}")
+        return out
+
     # ------------------------------------------------------------------ SNS・画像照合
     def search_sns_and_images(self, username):
         """Yahoo!リアルタイム検索・Yahoo!画像検索でユーザー名を照合し、SNS投稿・補助画像を取得する"""
@@ -342,7 +471,7 @@ class StripchatCurationEngine:
         try:
             r = requests.get(
                 "https://search.yahoo.co.jp/realtime/search",
-                params={"p": username, "ei": "UTF-8"},
+                params={"p": f"Stripchat {username}", "ei": "UTF-8"},
                 headers=HTML_HEADERS,
                 timeout=12,
             )
@@ -351,7 +480,10 @@ class StripchatCurationEngine:
                 d = json.loads(m.group(1))
                 entries = d.get("props", {}).get("pageProps", {}).get("pageData", {}).get("timeline", {}).get("entry", [])
                 for e in entries[:5]:
-                    body = clean_stripchat_text(e.get("displayTextBody", ""), max_len=70)
+                    raw_body = re.sub(r"\t?(?:START|END)\t?", "", e.get("displayTextBody", ""))
+                    if username.lower() not in raw_body.lower():
+                        continue
+                    body = clean_stripchat_text(raw_body, max_len=70)
                     screen = e.get("screenName", "")
                     turl = re.sub(r"\?.*$", "", e.get("url", ""))
                     if screen and body:
@@ -422,9 +554,11 @@ class StripchatCurationEngine:
         return None
 
     # ------------------------------------------------------------------ 詳細プロフィール＆アーカイブ照合
-    def enrich_model(self, candidate):
-        """パフォーマー1名分の公式プロフィール・フォトアルバム・動画アーカイブ・SNS照合データを収集する"""
+    def enrich_model(self, candidate, require_asian=True):
+        """パフォーマー1組分の公式プロフィール・フォトアルバム・動画アーカイブ・SNS照合データを収集する"""
         uname = candidate["username"]
+        if has_unsafe_word(uname):
+            return None, "ユーザー名に安全フィルタ該当語句を含むため除外"
         base = f"https://jp.stripchat.com/{uname}"
 
         with ThreadPoolExecutor(max_workers=3) as pool:
@@ -443,34 +577,38 @@ class StripchatCurationEngine:
         if not model or model.get("isDeleted") or model.get("isBlocked"):
             return None, "アカウント削除・非公開"
 
-        gender = model.get("gender") or "female"
-        if gender != "female":
-            return None, f"女性単体アカウントではない ({gender})"
+        gender = model.get("gender") or model.get("broadcastGender") or "female"
+        if require_asian:
+            if gender != "female":
+                return None, f"女性単体アカウントではない ({gender})"
+        elif gender not in CAST_STYLE_MAP:
+            return None, f"対象外の配信スタイル ({gender})"
 
         tags = vc.get("tags") or []
         ethnicity = model.get("ethnicity") or ""
         raw_langs = model.get("languages") or []
         country_code = (model.get("country") or candidate.get("country") or "").lower()
 
-        # 国籍コード優先（他国コードが入っている場合は除外し、アジア人タグもチェック）
         rk = candidate["region_key"]
-        expected_codes = {
-            "jp": ("jp", ""),
-            "cn": ("cn", "tw", "hk", ""),
-            "kr": ("kr", ""),
-        }[rk]
-        if country_code not in expected_codes:
-            return None, f"対象国コード不一致 ({country_code} != {rk})"
+        if require_asian:
+            # 国籍コード優先（他国コードが入っている場合は除外し、アジア人タグもチェック）
+            expected_codes = {
+                "jp": ("jp", ""),
+                "cn": ("cn", "tw", "hk", ""),
+                "kr": ("kr", ""),
+            }[rk]
+            if country_code not in expected_codes:
+                return None, f"対象国コード不一致 ({country_code} != {rk})"
 
-        is_asian = (
-            "ethnicityAsian" in tags
-            or ethnicity == "ethnicityAsian"
-            or country_code in ("jp", "cn", "tw", "hk", "kr")
-        )
-        if not is_asian:
-            return None, f"アジア圏パフォーマーではない (country={country_code}, hair={model.get('hairColor')})"
-        if rk == "kr" and country_code == "" and "ko" not in raw_langs and (set(raw_langs) & {"de", "fr", "es", "ru", "pt", "it"}):
-            return None, f"韓国語・韓国籍の根拠不足 (langs={raw_langs})"
+            is_asian = (
+                "ethnicityAsian" in tags
+                or ethnicity == "ethnicityAsian"
+                or country_code in ("jp", "cn", "tw", "hk", "kr")
+            )
+            if not is_asian:
+                return None, f"アジア圏パフォーマーではない (country={country_code}, hair={model.get('hairColor')})"
+            if rk == "kr" and country_code == "" and "ko" not in raw_langs and (set(raw_langs) & {"de", "fr", "es", "ru", "pt", "it"}):
+                return None, f"韓国語・韓国籍の根拠不足 (langs={raw_langs})"
 
         counters = vc.get("userMediaCounters") or {}
         photos_count = int(counters.get("photosCount") or 0)
@@ -557,15 +695,27 @@ class StripchatCurationEngine:
             if mapped and mapped not in safe_interests:
                 safe_interests.append(mapped)
 
+        div_key = candidate.get("division_key")
+        meta = TOP_DIVISIONS[div_key] if (div_key and div_key in TOP_DIVISIONS) else COUNTRY_META[rk]
+        default_lang = "英語 / 多言語" if div_key else meta["short"]
+        raw_age = model.get("age")
+        safe_age = raw_age if isinstance(raw_age, int) and 18 <= raw_age <= 75 else None
+
         return {
             "username": uname,
             "region_key": rk,
-            "region_label": COUNTRY_META[rk]["label"],
-            "badge_bg": COUNTRY_META[rk]["badge_bg"],
+            "division_key": div_key,
+            "region_label": meta["label"],
+            "short_label": meta["short"],
+            "badge_bg": meta["badge_bg"],
+            "rank_position": candidate.get("rank_position"),
+            "strip_points": int(candidate.get("strip_points") or 0),
+            "top_best_place": candidate.get("top_best_place"),
+            "cast_style": CAST_STYLE_MAP.get(gender, "女性パフォーマー"),
             "profile_url": base,
-            "age": model.get("age"),
-            "country_code": country_code.upper() if country_code else COUNTRY_META[rk]["short"],
-            "languages_str": " / ".join(langs) if langs else COUNTRY_META[rk]["short"],
+            "age": safe_age,
+            "country_code": country_code.upper() if country_code else meta["short"],
+            "languages_str": " / ".join(langs) if langs else default_lang,
             "body_type": LABEL_MAP.get(model.get("bodyType"), "魅力的スタイル"),
             "hair_color": LABEL_MAP.get(model.get("hairColor"), "—"),
             "eye_color": LABEL_MAP.get(model.get("eyeColor"), "—"),
@@ -584,10 +734,17 @@ class StripchatCurationEngine:
     # ------------------------------------------------------------------ HTML記事生成
     def _build_commentary(self, m):
         """プロフィールとアーカイブ照合結果をもとに紹介コメントを作成する"""
-        parts = [
-            f"「{m['username']}」さんは{m['region_label'].split()[-1]}を拠点に活動する注目クリエイターで、"
-            f"公式ファン登録数は<strong>{m['favorited_count']:,}人</strong>を記録しています。"
-        ]
+        if m.get("division_key"):
+            parts = [
+                f"「{m['username']}」さんは<strong>{m['region_label']}</strong>で今月<strong>{m['rank_position']}位</strong>"
+                f"（{m['strip_points']:,} pt）にランクインしている注目キャスト（{m['cast_style']}）で、"
+                f"公式ファン登録数は<strong>{m['favorited_count']:,}人</strong>を記録しています。"
+            ]
+        else:
+            parts = [
+                f"「{m['username']}」さんは{m['region_label'].split()[-1]}を拠点に活動する注目クリエイターで、"
+                f"公式ファン登録数は<strong>{m['favorited_count']:,}人</strong>を記録しています。"
+            ]
         if m["photos_count"] or m["videos_count"]:
             parts.append(
                 f"公開アーカイブには写真<strong>{m['photos_count']}枚</strong>・動画<strong>{m['videos_count']}本</strong>が登録されており、"
@@ -606,13 +763,54 @@ class StripchatCurationEngine:
             parts.append(f"公開アーカイブ内の『{m['videos'][0]['title']}』をはじめ、多彩なコンテンツが楽しめます。")
         return "".join(parts)
 
-    def generate_curation_html(self, models, vol):
-        """日・中・韓まとめ記事のHTML・タイトル・タグを生成する"""
+    def generate_curation_html(self, models, vol, mode="asian", division="all"):
+        """まとめ記事（日中韓アジア美女 / 人気キャスト女性5部門＋カップル）のHTML・タイトル・タグを生成する"""
         e = html.escape
         date_str = datetime.date.today().strftime("%Y年%m月%d日")
-        title = f"【アジア美女図鑑 Vol.{vol}】世界のライブ配信で話題の日・中・韓美女{len(models)}選まとめ｜プロフィール＆アーカイブ徹底照合"
+        is_top = mode == "top"
 
-        amz_photo = get_amazon_url("アジア 美女 写真集 コスプレ 人気", self.amazon_tag)
+        if is_top and division in TOP_DIVISIONS:
+            div_meta = TOP_DIVISIONS[division]
+            title = f"【世界人気キャスト図鑑 Vol.{vol}】{div_meta['label']} 上位{len(models)}組まとめ｜プロフィール＆アーカイブ照合"
+            badge_top = f"STRIPCHAT TOP RANKING DIGEST Vol.{vol}"
+            sub_meta = f"更新日: {date_str} ｜ 対象部門: {div_meta['label']}"
+            intro = (
+                f"Stripchat公式の月間人気ランキング「{div_meta['label']}」で上位を席巻する注目キャスト{len(models)}組をピックアップ！"
+                "公式ランキング順位・獲得ポイントに加えて、公開プロフィール・フォトアルバム・過去動画アーカイブ・SNS照合データをまとめました。"
+            )
+            toc_title = f"📑 {div_meta['label']} 上位{len(models)}組 目次"
+            monetize_title = "📚 世界の人気美女＆海外写真集ストアをお得にチェック"
+            amz_kw = "海外 モデル 写真集 グラビア 人気"
+            footer_title = f"美女図鑑 世界人気キャストまとめ Vol.{vol}"
+            tags = ["美女図鑑", "Stripchat", "人気キャスト", div_meta["short"], "ライブ配信"] + [m["username"] for m in models[:4]]
+        elif is_top:
+            title = f"【世界人気キャスト図鑑 Vol.{vol}】女性5部門（アジア・北米・南米・欧州・アフリカ）＆カップル上位{len(models)}組まとめ｜プロフィール＆アーカイブ照合"
+            badge_top = f"STRIPCHAT GLOBAL TOP 6 DIVISIONS Vol.{vol}"
+            sub_meta = f"更新日: {date_str} ｜ 対象部門: 🌏アジア・🗽北米・🌴南米・🏰欧州・🌍アフリカ・💑カップル"
+            intro = (
+                f"Stripchatの公式人気キャストランキング「女性5地域部門（アジア&太平洋・北アメリカ・南アメリカ・ヨーロッパ・アフリカ）」および「カップル部門」から、"
+                f"各部門を代表する注目キャスト計{len(models)}組を厳選まとめ！各部門のランキング順位・プロフィール・公開アーカイブ・SNS言及を一挙に照合しました。"
+            )
+            toc_title = f"📑 女性5部門＋カップル 人気キャスト {len(models)}組 目次"
+            monetize_title = "📚 世界の人気美女＆海外写真集ストアをお得にチェック"
+            amz_kw = "海外 モデル 写真集 グラビア 人気"
+            footer_title = f"美女図鑑 世界人気キャストまとめ Vol.{vol}"
+            tags = ["美女図鑑", "Stripchat", "人気キャスト", "カップル配信", "世界の美女"] + [m["username"] for m in models[:4]]
+        else:
+            title = f"【アジア美女図鑑 Vol.{vol}】世界のライブ配信で話題の日・中・韓美女{len(models)}選まとめ｜プロフィール＆アーカイブ徹底照合"
+            badge_top = f"ASIAN CREATOR &amp; ARCHIVE DIGEST Vol.{vol}"
+            sub_meta = f"更新日: {date_str} ｜ 対象地域: 🇯🇵日本・🇨🇳中国/台湾・🇰🇷韓国"
+            intro = (
+                f"日本・中国（台湾含む）・韓国のグローバル配信コミュニティで高い人気を集めている美女クリエイター{len(models)}名を厳選ピックアップ！"
+                "公式プロフィール情報に加えて、公開フォトアルバム・過去動画アーカイブ・SNS（X）での話題性をまとめて照合しました。"
+            )
+            toc_title = f"📑 今回紹介する日・中・韓美女 {len(models)}名 目次"
+            monetize_title = "📚 アジア美女の写真集＆人気ストアをお得にチェック"
+            amz_kw = "アジア 美女 写真集 コスプレ 人気"
+            footer_title = f"美女図鑑 アジアクリエイターまとめ Vol.{vol}"
+            tags = ["美女図鑑", "アジア美女", "ライブ配信", "韓国美女", "中国美女"] + [m["username"] for m in models[:4]]
+
+        amz_photo = get_amazon_url(amz_kw, self.amazon_tag)
         amz_sub = get_amazon_url("グラビア デジタル写真集 トレンド", self.amazon_tag)
         kindle_url = get_kindle_unlimited_url(self.amazon_tag)
 
@@ -651,12 +849,16 @@ class StripchatCurationEngine:
 </style>
 """
 
-        toc_html = "".join(
-            f'<li><a href="#sc-{i}"><span>#{i}</span>'
-            f'<span style="background:{m["badge_bg"]};color:#fff;font-size:11px;padding:2px 7px;border-radius:10px;">{e(COUNTRY_META[m["region_key"]]["short"])}</span>'
-            f'<span>{e(m["username"])}</span></a></li>'
-            for i, m in enumerate(models, 1)
-        )
+        toc_items = []
+        for i, m in enumerate(models, 1):
+            short_txt = m.get("short_label") or COUNTRY_META[m["region_key"]]["short"]
+            rank_txt = f" {m['rank_position']}位" if m.get("rank_position") else ""
+            toc_items.append(
+                f'<li><a href="#sc-{i}"><span>#{i}</span>'
+                f'<span style="background:{m["badge_bg"]};color:#fff;font-size:11px;padding:2px 7px;border-radius:10px;">{e(short_txt)}{e(rank_txt)}</span>'
+                f'<span>{e(m["username"])}</span></a></li>'
+            )
+        toc_html = "".join(toc_items)
 
         cards = []
         for idx, m in enumerate(models, 1):
@@ -671,12 +873,20 @@ class StripchatCurationEngine:
                 )
                 sub_html = f'<div class="sc-sub-grid">{sub_tags}</div>'
 
-            rows = [
-                ("活動国・言語", f"{e(m['region_label'])}（対応言語: {e(m['languages_str'])}）"),
+            if m.get("division_key"):
+                rows = [
+                    ("人気ランキング部門", f"{e(m['region_label'])}（今月 {m['rank_position']}位 / {m['strip_points']:,} pt）"),
+                    ("配信スタイル / 言語", f"{e(m['cast_style'])}（対応言語: {e(m['languages_str'])}）"),
+                ]
+            else:
+                rows = [
+                    ("活動国・言語", f"{e(m['region_label'])}（対応言語: {e(m['languages_str'])}）"),
+                ]
+            rows.extend([
                 ("年齢 / スタイル", f"{m['age']}歳 / {e(m['body_type'])}" if m.get("age") else e(m["body_type"])),
                 ("髪色・瞳", f"{e(m['hair_color'])} / {e(m['eye_color'])}"),
                 ("公開アーカイブ規模", f"写真 {m['photos_count']}点 / 動画 {m['videos_count']}本"),
-            ]
+            ])
             if m["interests"]:
                 rows.append(("趣味・特徴", e("、".join(m["interests"]))))
             table_rows = "".join(f"<tr><th>{k}</th><td>{v}</td></tr>" for k, v in rows)
@@ -702,11 +912,12 @@ class StripchatCurationEngine:
                     '</div>'
                 )
 
+            rank_badge = f" ｜ 今月 {m['rank_position']}位" if m.get("rank_position") else ""
             cards.append(f"""
   <div class="sc-card" id="sc-{idx}">
     <div class="sc-card-head">
       <span class="sc-num">#{idx}</span>
-      <span class="sc-country" style="background:{m['badge_bg']};">{e(m['region_label'])}</span>
+      <span class="sc-country" style="background:{m['badge_bg']};">{e(m['region_label'])}{e(rank_badge)}</span>
       <span class="sc-name">{e(m['username'])}</span>
       <span class="sc-fav">♥ 登録 {m['favorited_count']:,}人</span>
     </div>
@@ -726,10 +937,10 @@ class StripchatCurationEngine:
 
         monetize_html = f"""
   <div class="sc-monetize">
-    <h3 style="margin:0 0 8px;color:#92400e;font-size:18px;">📚 アジア美女の写真集＆人気ストアをお得にチェック</h3>
+    <h3 style="margin:0 0 8px;color:#92400e;font-size:18px;">{e(monetize_title)}</h3>
     <p style="margin:0 0 10px;font-size:13px;color:#78350f;">話題のデジタル写真集やKindle Unlimited読み放題・おすすめサービスはこちらからご覧いただけます。</p>
     <div class="sc-monetize-grid">
-      <a href="{e(amz_photo)}" target="_blank" rel="nofollow noopener" style="background:linear-gradient(135deg,#f59e0b,#d97706);">📦 Amazonで人気のアジア美女写真集を見る</a>
+      <a href="{e(amz_photo)}" target="_blank" rel="nofollow noopener" style="background:linear-gradient(135deg,#f59e0b,#d97706);">📦 Amazonで人気の写真集・関連作品を見る</a>
       <a href="{e(kindle_url)}" target="_blank" rel="nofollow noopener" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);">📚 Kindle Unlimited（30日間無料）で読み放題</a>
       <a href="{e(amz_sub)}" target="_blank" rel="nofollow noopener" style="background:linear-gradient(135deg,#059669,#047857);">🎁 グラビア最新トレンド・関連雑誌を見る</a>
     </div>
@@ -739,95 +950,84 @@ class StripchatCurationEngine:
         full_html = f"""{style}
 <div class="sc-wrap">
   <div class="sc-hero">
-    <span class="sc-badge-top">ASIAN CREATOR &amp; ARCHIVE DIGEST Vol.{vol}</span>
+    <span class="sc-badge-top">{badge_top}</span>
     <h1>{e(title)}</h1>
-    <div style="font-size:12.5px;opacity:0.85;margin-bottom:12px;">更新日: {date_str} ｜ 対象地域: 🇯🇵日本・🇨🇳中国/台湾・🇰🇷韓国</div>
-    <div class="sc-intro">
-      日本・中国（台湾含む）・韓国のグローバル配信コミュニティで高い人気を集めている美女クリエイター{len(models)}名を厳選ピックアップ！
-      公式プロフィール情報に加えて、公開フォトアルバム・過去動画アーカイブ・SNS（X）での話題性をまとめて照合しました。
-    </div>
+    <div style="font-size:12.5px;opacity:0.85;margin-bottom:12px;">{e(sub_meta)}</div>
+    <div class="sc-intro">{e(intro)}</div>
   </div>
   <div class="sc-toc">
-    <div class="sc-toc-title">📑 今回紹介する日・中・韓美女 {len(models)}名 目次</div>
+    <div class="sc-toc-title">{e(toc_title)}</div>
     <ul class="sc-toc-list">{toc_html}</ul>
   </div>
   {"".join(cards)}
   {monetize_html}
   <div class="sc-footer">
-    <p style="margin:0 0 6px;"><strong>美女図鑑 アジアクリエイターまとめ Vol.{vol}</strong></p>
-    <p style="margin:0;">※掲載データは記事作成時点（{date_str}）の公開プロフィール・公式公開アーカイブ情報に基づいています。最新の配信予定やアルバム詳細は各公式ページにてご確認ください。</p>
+    <p style="margin:0 0 6px;"><strong>{e(footer_title)}</strong></p>
+    <p style="margin:0;">※掲載データは記事作成時点（{date_str}）の公開プロフィール・公式人気ランキング・公開アーカイブ情報に基づいています。最新の配信予定やアルバム詳細は各公式ページにてご確認ください。</p>
   </div>
 </div>"""
 
-        tags = ["美女図鑑", "アジア美女", "ライブ配信", "韓国美女", "中国美女"] + [m["username"] for m in models[:4]]
         return title, full_html, CATEGORY, tags
 
     # ------------------------------------------------------------------ 実行・投稿・通知
-    def run_curation_post(self, count=6, dry_run=False):
-        """日本人・中国人・韓国人のまとめ記事を1本作成し、投稿とntfy通知を行う"""
-        history = self.load_history()
-        vol = int(history.get("current_vol", 1))
-        region_pool = self.fetch_asian_candidates_by_region(per_region=max(6, (count // 3) + 4))
+    def _collect_from_pool(self, group_keys, candidate_pool, target_count, per_group_goal, require_asian, history, dry_run):
+        """候補プールから各グループの目標人数分だけ詳細照合・画像アップロードを行って抽出する"""
+        labels = TOP_DIVISIONS if not require_asian else COUNTRY_META
+        enriched_by_group = {gk: [] for gk in group_keys}
 
-        per_region_goal = max(1, count // 3)
-        enriched_by_region = {"jp": [], "cn": [], "kr": []}
-
-        # 第1パス: 日・中・韓それぞれ最低 per_region_goal 名（例: 各2名）を確実に揃える
-        for rk in ("jp", "cn", "kr"):
-            for c in region_pool.get(rk, []):
-                if len(enriched_by_region[rk]) >= per_region_goal:
+        for gk in group_keys:
+            for c in candidate_pool.get(gk, []):
+                if len(enriched_by_group[gk]) >= per_group_goal:
                     break
-                print(f"--- 照合中 [{COUNTRY_META[rk]['label']}]: {c['username']} ({c['source_label']})")
-                info, reason = self.enrich_model(c)
+                print(f"--- 照合中 [{labels[gk]['label']}]: {c['username']} ({c['source_label']})")
+                info, reason = self.enrich_model(c, require_asian=require_asian)
                 if info:
-                    enriched_by_region[rk].append(info)
-                    print(f"    ✔ 採用 ({rk.upper()} {len(enriched_by_region[rk])}/{per_region_goal}): {info['username']} [画像{len(info['images'])}枚 / 動画{len(info['videos'])}件]")
+                    enriched_by_group[gk].append(info)
+                    print(f"    ✔ 採用 ({gk.upper()} {len(enriched_by_group[gk])}/{per_group_goal}): {info['username']} [画像{len(info['images'])}枚 / 動画{len(info['videos'])}件]")
                 else:
                     print(f"    × スキップ: {c['username']} ({reason})")
                     if not dry_run:
                         history.setdefault("skipped_usernames", {})[c["username"]] = reason
 
-        # 3地域の採用者を順番（JP→CN→KR→JP→CN→KR）に並べる
         all_enriched = []
         used_names = set()
-        for i in range(per_region_goal):
-            for rk in ("jp", "cn", "kr"):
-                if i < len(enriched_by_region[rk]):
-                    m = enriched_by_region[rk][i]
+        for i in range(per_group_goal):
+            for gk in group_keys:
+                if i < len(enriched_by_group[gk]):
+                    m = enriched_by_group[gk][i]
                     all_enriched.append(m)
                     used_names.add(m["username"].lower())
 
-        # 第2パス: 万一足りない分があれば他地域の残り候補で補充する
-        if len(all_enriched) < count:
+        if len(all_enriched) < target_count:
             leftovers = []
-            max_rem = max((len(v) for v in region_pool.values()), default=0)
+            max_rem = max((len(v) for v in candidate_pool.values()), default=0)
             for i in range(max_rem):
-                for rk in ("jp", "cn", "kr"):
-                    if i < len(region_pool[rk]):
-                        c = region_pool[rk][i]
+                for gk in group_keys:
+                    if i < len(candidate_pool.get(gk, [])):
+                        c = candidate_pool[gk][i]
                         if c["username"].lower() not in used_names:
                             leftovers.append(c)
             for c in leftovers:
-                if len(all_enriched) >= count:
+                if len(all_enriched) >= target_count:
                     break
-                rk = c["region_key"]
-                print(f"--- 補充照合 [{COUNTRY_META[rk]['label']}]: {c['username']}")
-                info, reason = self.enrich_model(c)
+                gk = c["region_key"]
+                print(f"--- 補充照合 [{labels[gk]['label']}]: {c['username']}")
+                info, reason = self.enrich_model(c, require_asian=require_asian)
                 if info:
                     all_enriched.append(info)
                     used_names.add(info["username"].lower())
-                    print(f"    ✔ 補充採用 ({len(all_enriched)}/{count}): {info['username']}")
+                    print(f"    ✔ 補充採用 ({len(all_enriched)}/{target_count}): {info['username']}")
+                elif not dry_run:
+                    history.setdefault("skipped_usernames", {})[c["username"]] = reason
+        return all_enriched
 
-        if len(all_enriched) < 3:
-            print(f"[エラー] 記事化可能な候補が不足しています ({len(all_enriched)}名)")
-            if not dry_run:
-                self.save_history(history)
-            return False
-
-        title, html_content, category, tags = self.generate_curation_html(all_enriched, vol=vol)
+    def _publish_curation_article(self, models, history, vol, mode="asian", division="all", next_division_idx=None, dry_run=False):
+        """HTML生成・プレビュー保存または本番投稿・履歴保存・ntfy通知を行う"""
+        title, html_content, category, tags = self.generate_curation_html(models, vol=vol, mode=mode, division=division)
 
         if dry_run:
-            preview_path = os.path.join(BASE_DIR, "scratch", f"stripchat_vol{vol}_preview.html")
+            prefix = "stripchat_top" if mode == "top" else "stripchat"
+            preview_path = os.path.join(BASE_DIR, "scratch", f"{prefix}_vol{vol}_preview.html")
             os.makedirs(os.path.dirname(preview_path), exist_ok=True)
             with open(preview_path, "w", encoding="utf-8") as f:
                 f.write(f"<html><head><meta charset='utf-8'><title>{html.escape(title)}</title></head><body>{html_content}</body></html>")
@@ -850,28 +1050,38 @@ class StripchatCurationEngine:
         except Exception:
             pass
 
-        usernames_posted = [m["username"] for m in all_enriched]
-        history["current_vol"] = vol + 1
+        usernames_posted = [m["username"] for m in models]
+        vol_key = "current_top_vol" if mode == "top" else "current_vol"
+        history[vol_key] = vol + 1
+        if next_division_idx is not None:
+            history["top_division_idx"] = next_division_idx
         history.setdefault("posted_usernames", []).extend(usernames_posted)
         history.setdefault("posted_articles", []).append({
+            "mode": mode,
+            "division": division,
             "vol": vol,
             "title": title,
             "url": article_url,
-            "count": len(all_enriched),
+            "count": len(models),
             "usernames": usernames_posted,
             "posted_at": datetime.datetime.now().isoformat(timespec="seconds"),
         })
         self.save_history(history)
         print(f"🎉 [SUCCESS] まとめ記事 Vol.{vol} 公開完了: {article_url}")
 
-        hero_img = all_enriched[0]["images"][0]
+        hero_img = models[0]["images"][0]
         try:
+            hashtags = (
+                ["美女図鑑", "Stripchat", "人気キャスト", "ライブ配信"]
+                if mode == "top"
+                else ["美女図鑑", "アジア美女", "ライブ配信", "美人まとめ"]
+            )
             ArticleNotifier().send_notification_email(
                 title=title,
                 article_url=article_url,
                 category=category,
                 blog_title="美女図鑑",
-                hashtags=["美女図鑑", "アジア美女", "ライブ配信", "美人まとめ"],
+                hashtags=hashtags,
                 image_url=hero_img,
             )
         except Exception as e:
@@ -879,13 +1089,81 @@ class StripchatCurationEngine:
 
         return True
 
+    def run_curation_post(self, count=6, dry_run=False):
+        """日本人・中国人・韓国人のまとめ記事を1本作成し、投稿とntfy通知を行う"""
+        history = self.load_history()
+        vol = int(history.get("current_vol", 1))
+        group_keys = ("jp", "cn", "kr")
+        region_pool = self.fetch_asian_candidates_by_region(per_region=max(6, (count // 3) + 4))
+        per_region_goal = max(1, count // 3)
+
+        all_enriched = self._collect_from_pool(
+            group_keys, region_pool, count, per_region_goal, require_asian=True, history=history, dry_run=dry_run
+        )
+        if len(all_enriched) < 3:
+            print(f"[エラー] 記事化可能な候補が不足しています ({len(all_enriched)}名)")
+            if not dry_run:
+                self.save_history(history)
+            return False
+
+        return self._publish_curation_article(all_enriched, history, vol=vol, mode="asian", division="asian", dry_run=dry_run)
+
+    def run_top_cast_post(self, count=6, division="all", dry_run=False):
+        """人気キャスト（女性5部門＋カップル）を元ネタにしたまとめ記事を1本作成・投稿する"""
+        history = self.load_history()
+        vol = int(history.get("current_top_vol", 1))
+        next_idx = None
+
+        if division == "rotate":
+            idx = int(history.get("top_division_idx", 0)) % len(TOP_DIVISION_ORDER)
+            target_division = TOP_DIVISION_ORDER[idx]
+            next_idx = (idx + 1) % len(TOP_DIVISION_ORDER)
+            group_keys = [target_division]
+            per_group_goal = count
+        elif division in TOP_DIVISIONS:
+            target_division = division
+            group_keys = [division]
+            per_group_goal = count
+        else:
+            target_division = "all"
+            group_keys = list(TOP_DIVISION_ORDER)
+            per_group_goal = max(1, count // len(group_keys))
+
+        cand_pool = self.fetch_top_cast_candidates(group_keys, per_division=max(30, per_group_goal * 4))
+        all_enriched = self._collect_from_pool(
+            group_keys, cand_pool, count, per_group_goal, require_asian=False, history=history, dry_run=dry_run
+        )
+        if len(all_enriched) < 3:
+            print(f"[エラー] 人気キャスト候補が不足しています ({len(all_enriched)}組)")
+            if not dry_run:
+                self.save_history(history)
+            return False
+
+        return self._publish_curation_article(
+            all_enriched,
+            history,
+            vol=vol,
+            mode="top",
+            division=target_division,
+            next_division_idx=next_idx,
+            dry_run=dry_run,
+        )
+
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(description="Stripchat 日中韓パフォーマー まとめ記事自動投稿エンジン")
-    ap.add_argument("--count", type=int, default=6, help="まとめ記事の掲載人数 (デフォルト: 6)")
+    ap = argparse.ArgumentParser(description="Stripchat まとめ記事自動投稿エンジン（人気キャスト女性5部門＋カップル / 日中韓）")
+    ap.add_argument("--count", type=int, default=6, help="まとめ記事の掲載組数 (デフォルト: 6)")
+    ap.add_argument("--mode", choices=["top", "asian", "top-rotate"], default="top", help="記事モード: top(人気キャスト5部門+カップル), top-rotate(部門別ローテ), asian(日中韓)")
+    ap.add_argument("--division", choices=["all", "as", "na", "sa", "eu", "af", "couples", "rotate"], default="all", help="topモード時の対象部門")
     ap.add_argument("--dry-run", action="store_true", help="投稿せず scratch/ にプレビューHTMLを保存")
     ap.add_argument("--blog-id", type=str, default=DEFAULT_BLOG_ID, help="対象ブログID")
     args = ap.parse_args()
 
-    ok = StripchatCurationEngine(blog_id=args.blog_id).run_curation_post(count=args.count, dry_run=args.dry_run)
+    engine = StripchatCurationEngine(blog_id=args.blog_id)
+    if args.mode == "asian":
+        ok = engine.run_curation_post(count=args.count, dry_run=args.dry_run)
+    elif args.mode == "top-rotate":
+        ok = engine.run_top_cast_post(count=args.count, division="rotate", dry_run=args.dry_run)
+    else:
+        ok = engine.run_top_cast_post(count=args.count, division=args.division, dry_run=args.dry_run)
     sys.exit(0 if ok else 1)

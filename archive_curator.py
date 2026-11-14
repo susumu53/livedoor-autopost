@@ -854,9 +854,12 @@ if __name__ == "__main__":
         from stripchat_curation_engine import StripchatCurationEngine
         print("=== [毎日実行 1] 美女図鑑 個別プロフィール記事の自動投稿を開始 ===")
         success_profile = BijozukanProfileEngine(blog_id=args.blog_id).run()
+        sc_engine = StripchatCurationEngine(blog_id=args.blog_id)
         print("=== [毎日実行 2] Stripchat 日中韓パフォーマーまとめ記事の自動投稿を開始 ===")
-        success_stripchat = StripchatCurationEngine(blog_id=args.blog_id).run_curation_post(count=6)
-        success = bool(success_profile or success_stripchat)
+        success_stripchat = sc_engine.run_curation_post(count=6)
+        print("=== [毎日実行 3] Stripchat 人気キャスト（女性5部門＋カップル）まとめ記事の自動投稿を開始 ===")
+        success_top_cast = sc_engine.run_top_cast_post(count=6, division="all")
+        success = bool(success_profile or success_stripchat or success_top_cast)
         try:
             subprocess.run(["git", "add", "bijozukan_history.json", "stripchat_history.json"], check=False)
         except Exception:
