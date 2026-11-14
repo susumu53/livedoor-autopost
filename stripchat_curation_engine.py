@@ -10,6 +10,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.parse
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
@@ -244,6 +245,17 @@ def clean_stripchat_text(text, max_len=120):
     return out
 
 
+def build_livecamrips_search_url(username: str) -> str:
+    """LiveCamRips のモデル検索URLを返す（クリック時に該当モデルで検索される）"""
+    return f"https://livecamrips.to/search/{urllib.parse.quote((username or '').strip(), safe='')}"
+
+
+def build_livecamrips_web_search_url(username: str) -> str:
+    """Yahoo!検索による LiveCamRips 内サイト検索URLを返す（補助リンク）"""
+    q = f'site:livecamrips.to "{(username or "").strip()}"'
+    return f"https://search.yahoo.co.jp/search?p={urllib.parse.quote(q)}&ei=UTF-8"
+
+
 class StripchatCurationEngine:
     def __init__(self, blog_id=DEFAULT_BLOG_ID):
         self.blog_id = blog_id
@@ -258,20 +270,26 @@ class StripchatCurationEngine:
                     data = json.load(f)
                     data.setdefault("current_vol", 1)
                     data.setdefault("current_top_vol", 1)
+                    data.setdefault("current_weekly_vol", 1)
                     data.setdefault("top_division_idx", 0)
+                    data.setdefault("last_weekly_top100_date", "")
                     data.setdefault("posted_usernames", [])
                     data.setdefault("skipped_usernames", {})
                     data.setdefault("posted_articles", [])
+                    data.setdefault("weekly_top100_articles", [])
                     return data
             except Exception as e:
                 print(f"[履歴読み込みエラー] {e}")
         return {
             "current_vol": 1,
             "current_top_vol": 1,
+            "current_weekly_vol": 1,
             "top_division_idx": 0,
+            "last_weekly_top100_date": "",
             "posted_usernames": [],
             "skipped_usernames": {},
             "posted_articles": [],
+            "weekly_top100_articles": [],
         }
 
     def save_history(self, data):
@@ -1057,6 +1075,9 @@ class StripchatCurationEngine:
     <a href="{e(m['profile_url'])}" class="sc-btn" target="_blank" rel="nofollow noopener">
       ✨ 「{e(m['username'])}」の公式プロフィール＆公開アルバムを確認する ＞
     </a>
+    <a href="{e(build_livecamrips_search_url(m['username']))}" class="sc-btn" style="margin-top:10px;background:linear-gradient(135deg,#0f172a,#334155);" target="_blank" rel="nofollow noopener">
+      🔍 LiveCamRipsで「{e(m['username'])}」を検索する ＞
+    </a>
   </div>""")
 
         monetize_html = f"""
@@ -1145,6 +1166,37 @@ class StripchatCurationEngine:
                     history.setdefault("skipped_usernames", {})[c["username"]] = reason
         return all_enriched
 
+    def _parse_posted_entry(self, res_xml):
+        """AtomPub投稿レスポンスXMLから公開URLと記事IDを抽出する"""
+        article_url = "https://bijozukan.doorblog.jp/"
+        article_id = None
+        try:
+            root = ET.fromstring(res_xml)
+            ns = {"atom": "http://www.w3.org/2005/Atom"}
+            alt_links = [
+                l.attrib.get("href")
+                for l in root.findall("atom:link", ns)
+                if l.attrib.get("rel") == "alternate" and l.attrib.get("href")
+            ]
+            if alt_links:
+                article_url = alt_links[0]
+            m_id = re.search(r"/archives/(\d+)\.html", article_url)
+            if m_id:
+                article_id = m_id.group(1)
+            else:
+                edit_links = [
+                    l.attrib.get("href")
+                    for l in root.findall("atom:link", ns)
+                    if l.attrib.get("rel") == "edit" and l.attrib.get("href")
+                ]
+                if edit_links:
+                    m_edit = re.search(r"/article/(\d+)", edit_links[0])
+                    if m_edit:
+                        article_id = m_edit.group(1)
+        except Exception:
+            pass
+        return article_url, article_id
+
     def _publish_curation_article(self, models, history, vol, mode="asian", division="all", next_division_idx=None, dry_run=False):
         """HTML生成・プレビュー保存または本番投稿・履歴保存・ntfy通知を行う"""
         title, html_content, category, tags = self.generate_curation_html(models, vol=vol, mode=mode, division=division)
@@ -1164,15 +1216,7 @@ class StripchatCurationEngine:
             print("[エラー] ライブドアブログへの記事投稿に失敗しました。")
             return False
 
-        article_url = "https://bijozukan.doorblog.jp/"
-        try:
-            root = ET.fromstring(res_xml)
-            ns = {"atom": "http://www.w3.org/2005/Atom"}
-            alt_links = [l.attrib.get("href") for l in root.findall("atom:link", ns) if l.attrib.get("rel") == "alternate"]
-            if alt_links:
-                article_url = alt_links[0]
-        except Exception:
-            pass
+        article_url, _ = self._parse_posted_entry(res_xml)
 
         usernames_posted = [m["username"] for m in models]
         vol_key = "current_top_vol" if mode == "top" else "current_vol"
@@ -1273,6 +1317,382 @@ class StripchatCurationEngine:
             dry_run=dry_run,
         )
 
+    # ------------------------------------------------------------------ 週間ランキングTOP100 × LiveCamRips検索
+    def fetch_division_top100(self, div_key, upload_top_avatars=3, dry_run=False):
+        """Stripchat指定部門のTOP100一覧を取得し、上位3名の安全アバター画像をアップロードする"""
+        meta = TOP_DIVISIONS[div_key]
+        state = self._extract_preloaded_state(meta["url"])
+        if not state:
+            return []
+
+        raw_items = []
+        for qval in (state.get("topModels") or {}).get("queries", {}).values():
+            cand_items = (qval.get("data") or {}).get("items") or []
+            if cand_items:
+                raw_items = cand_items
+                break
+
+        parsed = []
+        for idx, it in enumerate(raw_items, 1):
+            m = it.get("model") or {}
+            uname = (m.get("username") or "").strip()
+            if not uname:
+                continue
+            pos = int(it.get("position") or idx)
+            pts = int(it.get("stripPoints") or 0)
+            best = int(m.get("topBestPlace") or pos)
+            gender = m.get("gender") or m.get("broadcastGender") or "female"
+            parsed.append({
+                "position": pos,
+                "username": uname,
+                "strip_points": pts,
+                "prize": int(it.get("prize") or 0),
+                "top_best_place": best,
+                "country_code": (m.get("country") or "").upper(),
+                "cast_style": CAST_STYLE_MAP.get(gender, "女性パフォーマー"),
+                "is_live": bool(m.get("isLive")),
+                "avatar_raw": m.get("avatarUrl") or "",
+                "avatar_img": "",
+                "profile_url": f"https://ja.stripchat.com/{urllib.parse.quote(uname, safe='')}",
+                "livecamrips_url": build_livecamrips_search_url(uname),
+                "livecamrips_web_url": build_livecamrips_web_search_url(uname),
+                "x_search_url": f"https://x.com/search?q={urllib.parse.quote(uname)}",
+            })
+
+        parsed.sort(key=lambda x: x["position"])
+        parsed = parsed[:100]
+
+        uploaded = 0
+        for row in parsed:
+            if uploaded >= upload_top_avatars:
+                break
+            raw_av = row["avatar_raw"]
+            if not raw_av:
+                continue
+            if dry_run:
+                row["avatar_img"] = raw_av
+                uploaded += 1
+            else:
+                up_url = self.upload_image_safe(raw_av)
+                if up_url:
+                    row["avatar_img"] = up_url
+                    uploaded += 1
+
+        print(f"[週間TOP100取得 {meta['label']}] {len(parsed)}件 / TOPアバター {uploaded}枚準備完了")
+        return parsed
+
+    def _render_weekly_top3_cards(self, items, e):
+        """TOP3ピックアップカードHTMLを生成する"""
+        medals = {1: "🥇 1位", 2: "🥈 2位", 3: "🥉 3位"}
+        with_img = [it for it in items if it.get("avatar_img")][:3]
+        if not with_img:
+            with_img = items[:3]
+        cards = []
+        for it in with_img:
+            pos = it["position"]
+            medal = medals.get(pos, f"#{pos}")
+            img_html = (
+                f'<a href="{e(it["livecamrips_url"])}" target="_blank" rel="nofollow noopener">'
+                f'<img src="{e(it["avatar_img"])}" alt="{e(it["username"])}"></a>'
+                if it.get("avatar_img")
+                else '<div class="scw-noimg">NO IMAGE</div>'
+            )
+            cards.append(f"""
+      <div class="scw-top3-card">
+        <div class="scw-top3-head"><span>{e(medal)}</span><span>{it["strip_points"]:,} pt</span></div>
+        {img_html}
+        <div class="scw-top3-name">{e(it["username"])}</div>
+        <div class="scw-top3-sub">{e(it["cast_style"])} ｜ 過去最高 {it["top_best_place"]}位</div>
+        <a href="{e(it["livecamrips_url"])}" class="scw-top3-btn scw-b-lcr" target="_blank" rel="nofollow noopener">🔍 LiveCamRipsでモデル検索</a>
+        <a href="{e(it["profile_url"])}" class="scw-top3-btn scw-b-sc" target="_blank" rel="nofollow noopener">🎥 Stripchat公式を見る</a>
+      </div>""")
+        return "".join(cards)
+
+    def _render_weekly_ranking_rows(self, items, e):
+        """1位〜100位ランキングテーブル行HTMLを生成する"""
+        rows = []
+        for it in items:
+            pos = it["position"]
+            pos_cls = "scw-pos-top" if pos <= 3 else ("scw-pos-hi" if pos <= 10 else "")
+            cc = f" ｜ 🌐{it['country_code']}" if it["country_code"] else ""
+            best_txt = "👑最高1位" if it["top_best_place"] == 1 else f"最高{it['top_best_place']}位"
+            rows.append(
+                f'<tr id="rank-{pos}">'
+                f'<td class="scw-rank"><span class="scw-pos {pos_cls}">{pos}位</span><div class="scw-best">{e(best_txt)}</div></td>'
+                f'<td class="scw-name-col"><a href="{e(it["livecamrips_url"])}" class="scw-mname" target="_blank" rel="nofollow noopener">{e(it["username"])}</a>'
+                f'<div class="scw-meta">{it["strip_points"]:,} pt ｜ {e(it["cast_style"])}{e(cc)}</div></td>'
+                f'<td class="scw-act-col">'
+                f'<a href="{e(it["livecamrips_url"])}" class="scw-b scw-b-lcr" target="_blank" rel="nofollow noopener">🔍 LiveCamRips検索</a>'
+                f'<a href="{e(it["livecamrips_web_url"])}" class="scw-b scw-b-web" target="_blank" rel="nofollow noopener">📁 Web照合</a>'
+                f'<a href="{e(it["profile_url"])}" class="scw-b scw-b-sc" target="_blank" rel="nofollow noopener">🎥 公式配信</a>'
+                f'<a href="{e(it["x_search_url"])}" class="scw-b scw-b-x" target="_blank" rel="nofollow noopener">𝕏 SNS</a>'
+                f'</td></tr>'
+            )
+        return "".join(rows)
+
+    def generate_weekly_top100_html(self, div_key, items, week_vol=1, sibling_links=None):
+        """カテゴリー別 週間ランキング100 × LiveCamRipsモデル検索記事HTMLを生成する"""
+        e = html.escape
+        meta = TOP_DIVISIONS[div_key]
+        today = datetime.date.today()
+        date_str = today.strftime("%Y年%m月%d日")
+        month_str = today.strftime("%Y年%m月")
+        unit = "組" if div_key == "couples" else "名"
+        total = len(items)
+        official_rank_url = meta["url"].replace("jp.stripchat.com", "ja.stripchat.com")
+        title = (
+            f"【週間ランキングTOP100】Stripchat 人気キャスト「{meta['label']}」"
+            f"全{total}{unit}一覧＆LiveCamRipsモデル検索リンク集【第{week_vol}週 / {month_str}】"
+        )
+
+        # 全6カテゴリー相互ナビゲーション
+        sib = sibling_links or {}
+        nav_pills = []
+        for dk in TOP_DIVISION_ORDER:
+            dm = TOP_DIVISIONS[dk]
+            if dk == div_key:
+                nav_pills.append(
+                    f'<span class="scw-pill scw-pill-cur" style="background:{dm["badge_bg"]};">{e(dm["short"])} (閲覧中)</span>'
+                )
+            elif sib.get(dk):
+                nav_pills.append(
+                    f'<a href="{e(sib[dk])}" class="scw-pill" style="border-color:{dm["badge_bg"]};">{e(dm["short"])}</a>'
+                )
+            else:
+                nav_pills.append(f'<span class="scw-pill scw-pill-dim">{e(dm["short"])}</span>')
+
+        jump_ranges = [(1, 20), (21, 50), (51, 80), (81, 100)]
+        jump_links = [
+            f'<a href="#rank-{s}" class="scw-jump">{s}〜{min(end, total)}位</a>'
+            for s, end in jump_ranges
+            if s <= total
+        ]
+
+        amz_photo = get_amazon_url("海外 モデル 写真集 グラビア 人気", self.amazon_tag)
+        amz_sub = get_amazon_url("グラビア デジタル写真集 トレンド", self.amazon_tag)
+        kindle_url = get_kindle_unlimited_url(self.amazon_tag)
+
+        style = """
+<style>
+.scw-wrap{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans",Meiryo,sans-serif;color:#1e293b;max-width:860px;margin:0 auto;line-height:1.65}
+.scw-hero{background:linear-gradient(135deg,#0f172a 0%,#312e81 55%,#be185d 100%);color:#fff;padding:26px 20px;border-radius:16px;text-align:center;margin-bottom:20px}
+.scw-badge{display:inline-block;background:rgba(255,255,255,.18);padding:4px 14px;border-radius:20px;font-size:12px;font-weight:bold;margin-bottom:8px}
+.scw-hero h1{font-size:21px;line-height:1.4;margin:8px 0 10px}
+.scw-intro{background:rgba(255,255,255,.12);border-radius:10px;padding:12px 14px;font-size:13.5px;text-align:left}
+.scw-nav{background:#f8fafc;border:1px solid #cbd5e1;border-radius:12px;padding:14px;margin-bottom:22px}
+.scw-nav-ttl{font-size:14px;font-weight:bold;color:#0f172a;margin-bottom:8px}
+.scw-pills{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px}
+.scw-pill{display:inline-block;padding:5px 11px;border-radius:16px;font-size:12.5px;font-weight:bold;text-decoration:none;color:#1e293b;background:#fff;border:1.5px solid #cbd5e1}
+.scw-pill-cur{color:#fff!important;border:none}
+.scw-pill-dim{opacity:.55}
+.scw-jumps{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12.5px}
+.scw-jump{background:#e2e8f0;color:#0f172a;text-decoration:none;font-weight:bold;padding:4px 10px;border-radius:8px}
+.scw-sec-ttl{font-size:18px;font-weight:bold;color:#0f172a;border-left:5px solid #ec4899;padding-left:10px;margin:24px 0 12px}
+.scw-top3-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:24px}
+.scw-top3-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.05)}
+.scw-top3-head{display:flex;justify-content:space-between;font-weight:bold;font-size:13.5px;color:#be185d;margin-bottom:8px}
+.scw-top3-card img{width:100%;height:200px;object-fit:cover;border-radius:10px;margin-bottom:8px}
+.scw-noimg{height:200px;line-height:200px;background:#f1f5f9;border-radius:10px;margin-bottom:8px;color:#94a3b8}
+.scw-top3-name{font-size:16px;font-weight:bold;color:#0f172a;word-break:break-all}
+.scw-top3-sub{font-size:12px;color:#64748b;margin-bottom:10px}
+.scw-top3-btn{display:block;padding:8px 10px;border-radius:18px;font-size:12.5px;font-weight:bold;text-decoration:none;color:#fff!important;margin-top:6px}
+.scw-table-wrap{overflow-x:auto;border:1px solid #cbd5e1;border-radius:12px;background:#fff;margin-bottom:24px}
+.scw-table{width:100%;border-collapse:collapse;font-size:13px}
+.scw-table th{background:#0f172a;color:#fff;padding:10px 8px;text-align:left;font-size:12.5px}
+.scw-table td{padding:9px 8px;border-bottom:1px solid #e2e8f0;vertical-align:middle}
+.scw-table tr:nth-child(even){background:#f8fafc}
+.scw-rank{width:68px;text-align:center}
+.scw-pos{display:inline-block;font-weight:bold;font-size:13px;padding:2px 8px;border-radius:12px;background:#e2e8f0;color:#0f172a}
+.scw-pos-top{background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff}
+.scw-pos-hi{background:#dbeafe;color:#1d4ed8}
+.scw-best{font-size:10.5px;color:#64748b;margin-top:2px}
+.scw-mname{font-size:14.5px;font-weight:bold;color:#0f172a;text-decoration:underline;word-break:break-all}
+.scw-meta{font-size:11.5px;color:#64748b;margin-top:2px}
+.scw-act-col{min-width:255px}
+.scw-b{display:inline-block;padding:5px 9px;border-radius:14px;font-size:11.5px;font-weight:bold;text-decoration:none;color:#fff!important;margin:2px 3px 2px 0;white-space:nowrap}
+.scw-b-lcr{background:linear-gradient(135deg,#0f172a,#334155)}
+.scw-b-web{background:#475569}
+.scw-b-sc{background:linear-gradient(135deg,#ec4899,#f43f5e)}
+.scw-b-x{background:#1d4ed8}
+.scw-monetize{background:linear-gradient(135deg,#fffbeb,#fef3c7);border:2px solid #f59e0b;border-radius:14px;padding:18px;margin:24px 0;text-align:center}
+.scw-monetize-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:10px}
+.scw-monetize-grid a{display:block;padding:11px 12px;border-radius:22px;font-weight:bold;font-size:13.5px;text-decoration:none;color:#fff!important}
+.scw-footer{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:18px;text-align:center;font-size:12.5px;color:#64748b}
+</style>
+"""
+
+        body = f"""{style}
+<div class="scw-wrap">
+  <div class="scw-hero">
+    <span class="scw-badge">WEEKLY TOP {total} × LIVECAMRIPS SEARCH (WEEK {week_vol})</span>
+    <h1>{e(title)}</h1>
+    <div style="font-size:12.5px;opacity:0.88;margin-bottom:10px;">集計日: {e(date_str)} ｜ 部門: {e(meta['label'])}（全{total}{unit}）</div>
+    <div class="scw-intro">
+      Stripchat公式ランキング「{e(meta['label'])}」の<strong>1位〜{total}位</strong>を週間アーカイブ一覧としてまとめました。
+      各モデルの名前または<strong>「🔍 LiveCamRips検索」ボタンをクリックすると、自動的にLiveCamRips上の該当モデル検索ページが開きます</strong>。
+      <div style="margin-top:6px;"><a href="{e(official_rank_url)}" style="color:#fde68a;font-weight:bold;" target="_blank" rel="nofollow noopener">▶ Stripchat公式「{e(meta['label'])}」リアルタイム順位を見る</a></div>
+    </div>
+  </div>
+
+  <div class="scw-nav">
+    <div class="scw-nav-ttl">📂 全6カテゴリー 週間ランキング切り替え</div>
+    <div class="scw-pills">{"".join(nav_pills)}</div>
+    <div class="scw-jumps"><strong>🔢 順位ジャンプ:</strong>{"".join(jump_links)}</div>
+  </div>
+
+  <div class="scw-sec-ttl">👑 今週のTOP 3 ピックアップ</div>
+  <div class="scw-top3-grid">{self._render_weekly_top3_cards(items, e)}</div>
+
+  <div class="scw-sec-ttl">📊 1位〜{total}位 完全ランキング＆LiveCamRipsモデル検索リスト</div>
+  <div class="scw-table-wrap">
+    <table class="scw-table">
+      <thead><tr><th>順位</th><th>モデル名 / ポイント</th><th>ワンクリックモデル検索・公式リンク</th></tr></thead>
+      <tbody>{self._render_weekly_ranking_rows(items, e)}</tbody>
+    </table>
+  </div>
+
+  <div class="scw-monetize">
+    <h3 style="margin:0 0 6px;color:#92400e;font-size:17px;">📚 世界の人気美女＆デジタル写真集ストア</h3>
+    <p style="margin:0 0 8px;font-size:12.5px;color:#78350f;">話題のデジタル写真集やKindle Unlimited読み放題はこちらからチェックできます。</p>
+    <div class="scw-monetize-grid">
+      <a href="{e(amz_photo)}" target="_blank" rel="nofollow noopener" style="background:linear-gradient(135deg,#f59e0b,#d97706);">📦 Amazonで人気の写真集・関連作品を見る</a>
+      <a href="{e(kindle_url)}" target="_blank" rel="nofollow noopener" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);">📚 Kindle Unlimited（30日間無料）</a>
+      <a href="{e(amz_sub)}" target="_blank" rel="nofollow noopener" style="background:linear-gradient(135deg,#059669,#047857);">🎁 グラビア最新トレンド・関連雑誌</a>
+    </div>
+    {A8_BANNERS_HTML}
+  </div>
+
+  <div class="scw-footer">
+    <p style="margin:0 0 4px;"><strong>美女図鑑 Stripchat週間TOP100 × LiveCamRips検索ディレクトリ 第{week_vol}週</strong></p>
+    <p style="margin:0;">※順位・獲得ポイントは集計日（{e(date_str)}）時点のStripchat公式ランキングデータに基づいています。</p>
+  </div>
+</div>"""
+
+        tags = ["美女図鑑", "Stripchat", "週間ランキングTOP100", "LiveCamRips", meta["short"]] + [
+            it["username"] for it in items[:3]
+        ]
+        return title, body, CATEGORY, tags
+
+    def should_run_weekly_top100(self, history=None):
+        """前回実行から7日以上経過、または日曜日に週間ランキングTOP100が未投稿ならTrueを返す"""
+        if history is None:
+            history = self.load_history()
+        last_str = (history.get("last_weekly_top100_date") or "").strip()
+        if not last_str:
+            return True
+        today = datetime.date.today()
+        try:
+            last_date = datetime.date.fromisoformat(last_str[:10])
+        except ValueError:
+            return True
+        days_elapsed = (today - last_date).days
+        if days_elapsed >= 7:
+            return True
+        return today.weekday() == 6 and days_elapsed >= 1
+
+    def run_weekly_top100_post(self, division="all", dry_run=False):
+        """各カテゴリー（女性5部門TOP100＋カップル部門）の週間ランキング記事を生成・投稿する"""
+        history = self.load_history()
+        week_vol = int(history.get("current_weekly_vol", 1))
+        target_divisions = (
+            list(TOP_DIVISION_ORDER) if division in ("all", "rotate") else [division]
+        )
+
+        div_items = {}
+        for dk in target_divisions:
+            items = self.fetch_division_top100(dk, upload_top_avatars=3, dry_run=dry_run)
+            if not items:
+                print(f"[警告] {TOP_DIVISIONS[dk]['label']} のランキング取得が0件でした。スキップします。")
+                continue
+            div_items[dk] = items
+
+        if not div_items:
+            print("[エラー] 取得できた週間ランキング部門がありません。")
+            return False
+
+        if dry_run:
+            preview_sib = {dk: f"#division-{dk}" for dk in div_items}
+            for dk, items in div_items.items():
+                title, html_content, _, _ = self.generate_weekly_top100_html(
+                    dk, items, week_vol=week_vol, sibling_links=preview_sib
+                )
+                preview_path = os.path.join(BASE_DIR, "scratch", f"stripchat_weekly_{dk}_v{week_vol}_preview.html")
+                os.makedirs(os.path.dirname(preview_path), exist_ok=True)
+                with open(preview_path, "w", encoding="utf-8") as f:
+                    f.write(f"<html><head><meta charset='utf-8'><title>{html.escape(title)}</title></head><body>{html_content}</body></html>")
+                print(f"[DRY-RUN] {dk}: {len(items)}件 / {len(html_content):,}文字 -> {preview_path}")
+            return True
+
+        published = {}
+        for dk, items in div_items.items():
+            title, html_content, category, tags = self.generate_weekly_top100_html(
+                dk, items, week_vol=week_vol, sibling_links=None
+            )
+            res_xml = self.livedoor.post_article(title, html_content, categories=[category] + tags, publish=True)
+            if not res_xml:
+                print(f"[エラー] 週間TOP100記事の投稿に失敗: {dk} (HTML文字数={len(html_content)})")
+                continue
+            article_url, article_id = self._parse_posted_entry(res_xml)
+            published[dk] = {
+                "title": title,
+                "url": article_url,
+                "article_id": article_id,
+                "count": len(items),
+                "category": category,
+                "tags": tags,
+                "hero_img": next((it["avatar_img"] for it in items if it.get("avatar_img")), None),
+            }
+            print(f"🎉 [WEEKLY TOP100] 投稿完了 ({dk}): {article_url}")
+
+        if not published:
+            return False
+
+        # 複数カテゴリー投稿時は全6カテゴリー相互ナビリンクを各記事へ反映する
+        if len(published) > 1:
+            sibling_links = {dk: info["url"] for dk, info in published.items()}
+            for dk, info in published.items():
+                aid = info.get("article_id")
+                if not aid:
+                    continue
+                title, updated_html, category, tags = self.generate_weekly_top100_html(
+                    dk, div_items[dk], week_vol=week_vol, sibling_links=sibling_links
+                )
+                res_upd = self.livedoor.update_article(
+                    aid, title, updated_html, categories=[category] + tags, publish=True
+                )
+                print(f"🔗 [相互リンク更新] {dk} (ID={aid}): {'成功' if res_upd else '失敗'}")
+
+        now_iso = datetime.datetime.now().isoformat(timespec="seconds")
+        history["current_weekly_vol"] = week_vol + 1
+        history["last_weekly_top100_date"] = datetime.date.today().isoformat()
+        for dk, info in published.items():
+            history.setdefault("weekly_top100_articles", []).append({
+                "week_vol": week_vol,
+                "division": dk,
+                "title": info["title"],
+                "url": info["url"],
+                "count": info["count"],
+                "posted_at": now_iso,
+            })
+        self.save_history(history)
+
+        notifier = ArticleNotifier()
+        for dk, info in published.items():
+            try:
+                notifier.send_notification_email(
+                    title=info["title"],
+                    article_url=info["url"],
+                    category=info["category"],
+                    blog_title="美女図鑑",
+                    hashtags=["美女図鑑", "Stripchat", "週間ランキングTOP100", "LiveCamRips", TOP_DIVISIONS[dk]["short"]],
+                    image_url=info["hero_img"],
+                )
+                time.sleep(0.6)
+            except Exception as exc:
+                print(f"[通知送信エラー {dk}] {exc}")
+
+        return True
+
     def refresh_published_articles(self):
         """stripchat_history.json にある公開済み記事を最新データ・動画埋め込みHTMLで上書き更新する"""
         history = self.load_history()
@@ -1344,11 +1764,16 @@ class StripchatCurationEngine:
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(description="Stripchat まとめ記事自動投稿エンジン（人気キャスト女性5部門＋カップル / 日中韓）")
+    ap = argparse.ArgumentParser(description="Stripchat まとめ記事自動投稿エンジン（人気キャスト女性5部門＋カップル / 日中韓 / 週間TOP100）")
     ap.add_argument("--count", type=int, default=6, help="まとめ記事の掲載組数 (デフォルト: 6)")
-    ap.add_argument("--mode", choices=["top", "asian", "top-rotate"], default="top", help="記事モード: top(人気キャスト5部門+カップル), top-rotate(部門別ローテ), asian(日中韓)")
-    ap.add_argument("--division", choices=["all", "as", "na", "sa", "eu", "af", "couples", "rotate"], default="all", help="topモード時の対象部門")
-    ap.add_argument("--refresh-published", action="store_true", help="公開済みVol.1記事を動画埋め込み版HTMLで上書き更新")
+    ap.add_argument(
+        "--mode",
+        choices=["top", "asian", "top-rotate", "weekly-top100"],
+        default="top",
+        help="記事モード: top(人気キャスト5部門+カップル), top-rotate(部門別ローテ), asian(日中韓), weekly-top100(カテゴリー別週間TOP100×LiveCamRips検索)",
+    )
+    ap.add_argument("--division", choices=["all", "as", "na", "sa", "eu", "af", "couples", "rotate"], default="all", help="top / weekly-top100 モード時の対象部門")
+    ap.add_argument("--refresh-published", action="store_true", help="公開済みまとめ記事を最新データ版HTMLで上書き更新")
     ap.add_argument("--dry-run", action="store_true", help="投稿せず scratch/ にプレビューHTMLを保存")
     ap.add_argument("--blog-id", type=str, default=DEFAULT_BLOG_ID, help="対象ブログID")
     args = ap.parse_args()
@@ -1356,6 +1781,8 @@ if __name__ == "__main__":
     engine = StripchatCurationEngine(blog_id=args.blog_id)
     if args.refresh_published:
         ok = engine.refresh_published_articles()
+    elif args.mode == "weekly-top100":
+        ok = engine.run_weekly_top100_post(division=args.division, dry_run=args.dry_run)
     elif args.mode == "asian":
         ok = engine.run_curation_post(count=args.count, dry_run=args.dry_run)
     elif args.mode == "top-rotate":

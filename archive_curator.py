@@ -859,7 +859,11 @@ if __name__ == "__main__":
         success_stripchat = sc_engine.run_curation_post(count=6)
         print("=== [毎日実行 3] Stripchat 人気キャスト（女性5部門＋カップル）まとめ記事の自動投稿を開始 ===")
         success_top_cast = sc_engine.run_top_cast_post(count=6, division="all")
-        success = bool(success_profile or success_stripchat or success_top_cast)
+        success_weekly = False
+        if sc_engine.should_run_weekly_top100():
+            print("=== [週1回自動実行] Stripchat カテゴリー別 週間ランキングTOP100 × LiveCamRips検索の自動投稿を開始 ===")
+            success_weekly = sc_engine.run_weekly_top100_post(division="all")
+        success = bool(success_profile or success_stripchat or success_top_cast or success_weekly)
         try:
             subprocess.run(["git", "add", "bijozukan_history.json", "stripchat_history.json"], check=False)
         except Exception:
