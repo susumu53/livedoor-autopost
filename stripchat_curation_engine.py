@@ -723,7 +723,7 @@ class StripchatCurationEngine:
                 if u not in raw_photos:
                     raw_photos.append(u)
 
-        # 過去動画アーカイブの収集（安全なタイトル＋公式プレビューMP4/HLSを取得）
+        # 過去動画アーカイブの収集（安全なタイトル・日付のテキスト情報のみ取得、動画キャプチャ画像は除外）
         videos_list = []
         if vid_state:
             vid_map = ((vid_state.get("videos") or {}).get("videos")) or {}
@@ -736,23 +736,11 @@ class StripchatCurationEngine:
                     safe_title = clean_stripchat_text(v.get("title") or "", max_len=45)
                     v_date = (v.get("createdAt") or "")[:10]
                     v_dur = int(v.get("duration") or 0)
-                    v_cover = v.get("coverUrl") or ""
-                    v_trailer = (v.get("trailerUrl") or "").strip()
                     videos_list.append({
                         "title": safe_title or f"{uname} 最新アーカイブ配信 ({v_date})" if v_date else f"{uname} 公式アーカイブ映像",
                         "date": v_date,
                         "duration": v_dur,
-                        "cover_url": v_cover,
-                        "trailer_url": v_trailer,
-                        "is_hls": v_trailer.endswith(".m3u8"),
                     })
-                    if v_cover and v_cover not in raw_photos:
-                        raw_photos.append(v_cover)
-
-        videos_list.sort(
-            key=lambda x: (1 if x["trailer_url"].endswith(".mp4") else (0 if x["trailer_url"] else -1)),
-            reverse=True,
-        )
 
         avatar = model.get("avatarUrl") or candidate.get("avatar_url") or ""
         if avatar and avatar not in raw_photos:
@@ -762,7 +750,6 @@ class StripchatCurationEngine:
         for si in search_imgs:
             if si not in raw_photos:
                 raw_photos.append(si)
-        external_embeds = self.search_external_video_embeds(uname)
 
         hosted_images = []
         for u in raw_photos[:12]:
@@ -818,7 +805,6 @@ class StripchatCurationEngine:
             "description": clean_stripchat_text(model.get("description") or "", max_len=140),
             "images": hosted_images,
             "videos": videos_list[:4],
-            "external_embeds": external_embeds,
             "sns_tweets": sns_tweets[:2],
             "source_label": candidate.get("source_label", ""),
         }, None
@@ -933,14 +919,6 @@ class StripchatCurationEngine:
 .sc-comment{background:#fdf2f8;border-left:4px solid #ec4899;border-radius:8px;padding:13px 16px;font-size:14px;margin-bottom:14px}
 .sc-archive-box{background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:13px 16px;margin-bottom:14px;font-size:13px}
 .sc-archive-box ul{margin:6px 0 0;padding-left:18px}
-.sc-video-box{background:#0f172a;color:#f8fafc;border-radius:12px;padding:15px 16px;margin-bottom:14px}
-.sc-video-title{font-size:14px;font-weight:bold;color:#f472b6;margin-bottom:10px;display:flex;align-items:center;gap:6px}
-.sc-video-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
-.sc-video-card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px}
-.sc-video-card video{width:100%;max-height:300px;border-radius:8px;background:#000;display:block}
-.sc-iframe-wrap{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;background:#000}
-.sc-iframe-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}
-.sc-video-cap{font-size:12px;color:#cbd5e1;margin-top:7px;line-height:1.45}
 .sc-btn{display:block;background:linear-gradient(135deg,#ec4899,#f43f5e);color:#fff!important;text-decoration:none;font-weight:bold;text-align:center;padding:12px 16px;border-radius:26px;font-size:15px}
 .sc-monetize{background:linear-gradient(135deg,#fffbeb,#fef3c7);border:2px solid #f59e0b;border-radius:14px;padding:20px;margin:30px 0;text-align:center}
 .sc-monetize-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px}
@@ -961,7 +939,6 @@ class StripchatCurationEngine:
         toc_html = "".join(toc_items)
 
         cards = []
-        has_hls = False
         for idx, m in enumerate(models, 1):
             main_img = m["images"][0]
             sub_imgs = m["images"][1:]
@@ -991,42 +968,6 @@ class StripchatCurationEngine:
             if m["interests"]:
                 rows.append(("趣味・特徴", e("、".join(m["interests"]))))
             table_rows = "".join(f"<tr><th>{k}</th><td>{v}</td></tr>" for k, v in rows)
-
-            video_cards = []
-            trailer_vids = [v for v in m.get("videos") or [] if v.get("trailer_url")][:2]
-            for v in trailer_vids:
-                t_url = v["trailer_url"]
-                d_txt = f"（{v['date']}）" if v.get("date") else ""
-                if t_url.endswith(".m3u8"):
-                    has_hls = True
-                    p_tag = f'<video controls preload="metadata" playsinline muted loop poster="{e(main_img)}" data-hls="{e(t_url)}"></video>'
-                else:
-                    p_tag = f'<video controls preload="metadata" playsinline muted loop poster="{e(main_img)}" src="{e(t_url)}"></video>'
-                video_cards.append(
-                    f'<div class="sc-video-card">{p_tag}'
-                    f'<div class="sc-video-cap">🎥 公式配信プレビュー: 『{e(v["title"])}』{e(d_txt)}</div></div>'
-                )
-
-            for ext in m.get("external_embeds") or []:
-                iframe_tag = (
-                    f'<div class="sc-iframe-wrap">'
-                    f'<iframe src="{e(ext["embed_url"])}" frameborder="0" allowfullscreen loading="lazy"></iframe>'
-                    f'</div>'
-                )
-                cap_html = (
-                    f'🎬 外部動画アーカイブ（<a href="{e(ext["watch_url"])}" target="_blank" rel="nofollow noopener" style="color:#93c5fd;">'
-                    f'{e(ext["site"])}</a>）: {e(ext["title"])}'
-                )
-                video_cards.append(f'<div class="sc-video-card">{iframe_tag}<div class="sc-video-cap">{cap_html}</div></div>')
-
-            video_embed_html = ""
-            if video_cards:
-                video_embed_html = (
-                    '<div class="sc-video-box">'
-                    '<div class="sc-video-title">🎥 実際の配信風景・アーカイブ動画プレイヤー</div>'
-                    f'<div class="sc-video-grid">{"".join(video_cards)}</div>'
-                    '</div>'
-                )
 
             archive_items = []
             for v in m["videos"]:
@@ -1065,7 +1006,6 @@ class StripchatCurationEngine:
     </div>
     {sub_html}
     <table class="sc-table">{table_rows}</table>
-    {video_embed_html}
     <div class="sc-comment">{self._build_commentary(m)}</div>
     {archive_html}
     <a href="{e(m['profile_url'])}" class="sc-btn" target="_blank" rel="nofollow noopener">
@@ -1085,32 +1025,6 @@ class StripchatCurationEngine:
     {A8_BANNERS_HTML}
   </div>"""
 
-        hls_script = ""
-        if has_hls:
-            hls_script = """
-<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
-<script>
-(function(){
-  var els = document.querySelectorAll('video[data-hls]');
-  if (!els.length) return;
-  function attach() {
-    els.forEach(function(v) {
-      var src = v.getAttribute('data-hls');
-      if (!src) return;
-      if (v.canPlayType('application/vnd.apple.mpegurl')) {
-        v.src = src;
-      } else if (window.Hls && Hls.isSupported()) {
-        var h = new Hls();
-        h.loadSource(src);
-        h.attachMedia(v);
-      }
-    });
-  }
-  if (window.Hls) attach();
-  else window.addEventListener('load', attach);
-})();
-</script>"""
-
         full_html = f"""{style}
 <div class="sc-wrap">
   <div class="sc-hero">
@@ -1129,8 +1043,7 @@ class StripchatCurationEngine:
     <p style="margin:0 0 6px;"><strong>{e(footer_title)}</strong></p>
     <p style="margin:0;">※掲載データは記事作成時点（{date_str}）の公開プロフィール・公式人気ランキング・公開アーカイブ情報に基づいています。最新の配信予定やアルバム詳細は各公式ページにてご確認ください。</p>
   </div>
-</div>
-{hls_script}"""
+</div>"""
 
         return title, full_html, CATEGORY, tags
 
@@ -1362,9 +1275,7 @@ class StripchatCurationEngine:
                     info, reason = self.enrich_model(cand, require_asian=True)
 
                 if info:
-                    t_cnt = sum(1 for v in info["videos"] if v.get("trailer_url"))
-                    e_cnt = len(info.get("external_embeds") or [])
-                    print(f"    ✔ 更新データ準備完了: {uname} [トレーラー:{t_cnt}本 / 外部埋め込み:{e_cnt}件]")
+                    print(f"    ✔ 更新データ準備完了: {uname} [画像{len(info['images'])}枚 / 動画{len(info['videos'])}件]")
                     refreshed_models.append(info)
                 else:
                     print(f"    ⚠ 取得スキップ: {uname} ({reason})")
