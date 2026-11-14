@@ -851,10 +851,14 @@ if __name__ == "__main__":
         import sys
         import subprocess
         from bijozukan_profile_engine import BijozukanProfileEngine
-        print("=== [毎日実行] 美女図鑑 個別プロフィール記事の自動投稿を開始 ===")
-        success = BijozukanProfileEngine(blog_id=args.blog_id).run()
+        from stripchat_curation_engine import StripchatCurationEngine
+        print("=== [毎日実行 1] 美女図鑑 個別プロフィール記事の自動投稿を開始 ===")
+        success_profile = BijozukanProfileEngine(blog_id=args.blog_id).run()
+        print("=== [毎日実行 2] Stripchat 日中韓パフォーマーまとめ記事の自動投稿を開始 ===")
+        success_stripchat = StripchatCurationEngine(blog_id=args.blog_id).run_curation_post(count=6)
+        success = bool(success_profile or success_stripchat)
         try:
-            subprocess.run(["git", "add", "bijozukan_history.json"], check=False)
+            subprocess.run(["git", "add", "bijozukan_history.json", "stripchat_history.json"], check=False)
         except Exception:
             pass
         if datetime.date.today().day == 1:

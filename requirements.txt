@@ -10,3 +10,4 @@ python-amazon-paapi
 google-generativeai
 feedparser
 beautifulsoup4
+Pillow
