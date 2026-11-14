@@ -849,20 +849,27 @@ if __name__ == "__main__":
     elif args.daily_auto:
         # 一日一回自動実行モード
         import sys
+        import time
         import subprocess
         from bijozukan_profile_engine import BijozukanProfileEngine
         from stripchat_curation_engine import StripchatCurationEngine
         print("=== [毎日実行 1] 美女図鑑 個別プロフィール記事の自動投稿を開始 ===")
         success_profile = BijozukanProfileEngine(blog_id=args.blog_id).run()
+        time.sleep(10)
         sc_engine = StripchatCurationEngine(blog_id=args.blog_id)
         print("=== [毎日実行 2] Stripchat 日中韓パフォーマーまとめ記事の自動投稿を開始 ===")
         success_stripchat = sc_engine.run_curation_post(count=6)
+        time.sleep(10)
         print("=== [毎日実行 3] Stripchat 人気キャスト（女性5部門＋カップル）まとめ記事の自動投稿を開始 ===")
         success_top_cast = sc_engine.run_top_cast_post(count=6, division="all")
         success_weekly = False
-        if sc_engine.should_run_weekly_top100():
-            print("=== [週1回自動実行] Stripchat カテゴリー別 週間ランキングTOP100 × LiveCamRips検索の自動投稿を開始 ===")
-            success_weekly = sc_engine.run_weekly_top100_post(division="all")
+        weekday_div = sc_engine.get_weekday_top100_division()
+        if weekday_div:
+            time.sleep(10)
+            print(f"=== [曜日別自動実行 (月〜土)] Stripchat 週間ランキングTOP100 ({weekday_div}) の自動投稿を開始 ===")
+            success_weekly = sc_engine.run_weekly_top100_post(division="weekday")
+        else:
+            print("=== [週間TOP100] 本日（日曜または本日分投稿済み）のためスキップ ===")
         success = bool(success_profile or success_stripchat or success_top_cast or success_weekly)
         try:
             subprocess.run(["git", "add", "bijozukan_history.json", "stripchat_history.json"], check=False)

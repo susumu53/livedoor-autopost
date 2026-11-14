@@ -1573,33 +1573,63 @@ class StripchatCurationEngine:
         ]
         return title, body, CATEGORY, tags
 
-    def should_run_weekly_top100(self, history=None):
-        """前回実行から7日以上経過、または日曜日に週間ランキングTOP100が未投稿ならTrueを返す"""
+    def get_weekday_top100_division(self, today=None, history=None):
+        """月〜土(weekday 0..5)の曜日に対応する週間TOP100部門キーを返す。日曜・当日投稿済みはNone"""
+        if today is None:
+            today = datetime.date.today()
+        wd = today.weekday()
+        if wd < 0 or wd >= len(TOP_DIVISION_ORDER) or wd == 6:
+            return None
+        target_div = TOP_DIVISION_ORDER[wd]
         if history is None:
             history = self.load_history()
-        last_str = (history.get("last_weekly_top100_date") or "").strip()
-        if not last_str:
-            return True
-        today = datetime.date.today()
-        try:
-            last_date = datetime.date.fromisoformat(last_str[:10])
-        except ValueError:
-            return True
-        days_elapsed = (today - last_date).days
-        if days_elapsed >= 7:
-            return True
-        return today.weekday() == 6 and days_elapsed >= 1
+        today_str = today.isoformat()
+        for art in history.get("weekly_top100_articles") or []:
+            if art.get("division") == target_div and (art.get("posted_at") or "").startswith(today_str):
+                return None
+        return target_div
+
+    def should_run_weekly_top100(self, history=None):
+        """本日(月〜土)に割り当てられた週間TOP100部門が未投稿ならTrueを返す（日曜は休止）"""
+        return self.get_weekday_top100_division(history=history) is not None
+
+    def _resolve_division_week_vol(self, history, div_key):
+        """部門ごとの過去投稿数から週番号(第N週)を算出する"""
+        div_count = sum(
+            1 for a in (history.get("weekly_top100_articles") or []) if a.get("division") == div_key
+        )
+        if div_count > 0:
+            return div_count + 1
+        return int(history.get("current_weekly_vol", 1))
+
+    def _build_sibling_links(self, history):
+        """履歴内の各部門の最新公開URLマップを構築する"""
+        links = {}
+        for art in history.get("weekly_top100_articles") or []:
+            adk = art.get("division")
+            aurl = art.get("url")
+            if adk in TOP_DIVISIONS and aurl:
+                links[adk] = aurl
+        return links
 
     def run_weekly_top100_post(self, division="all", dry_run=False):
         """各カテゴリー（女性5部門TOP100＋カップル部門）の週間ランキング記事を生成・投稿する"""
         history = self.load_history()
-        week_vol = int(history.get("current_weekly_vol", 1))
-        target_divisions = (
-            list(TOP_DIVISION_ORDER) if division in ("all", "rotate") else [division]
-        )
+        if division == "weekday":
+            weekday_div = self.get_weekday_top100_division(history=history)
+            if not weekday_div:
+                print("[スキップ] 本日(日曜または当日分投稿済み)は週間TOP100の自動投稿対象外です。")
+                return False
+            target_divisions = [weekday_div]
+        elif division in ("all", "rotate"):
+            target_divisions = list(TOP_DIVISION_ORDER)
+        else:
+            target_divisions = [division]
 
         div_items = {}
+        div_vols = {}
         for dk in target_divisions:
+            div_vols[dk] = self._resolve_division_week_vol(history, dk)
             items = self.fetch_division_top100(dk, upload_top_avatars=3, dry_run=dry_run)
             if not items:
                 print(f"[警告] {TOP_DIVISIONS[dk]['label']} のランキング取得が0件でした。スキップします。")
@@ -1610,23 +1640,27 @@ class StripchatCurationEngine:
             print("[エラー] 取得できた週間ランキング部門がありません。")
             return False
 
+        existing_sib = self._build_sibling_links(history)
+
         if dry_run:
-            preview_sib = {dk: f"#division-{dk}" for dk in div_items}
+            preview_sib = {**existing_sib, **{dk: f"#division-{dk}" for dk in div_items}}
             for dk, items in div_items.items():
+                wvol = div_vols[dk]
                 title, html_content, _, _ = self.generate_weekly_top100_html(
-                    dk, items, week_vol=week_vol, sibling_links=preview_sib
+                    dk, items, week_vol=wvol, sibling_links=preview_sib
                 )
-                preview_path = os.path.join(BASE_DIR, "scratch", f"stripchat_weekly_{dk}_v{week_vol}_preview.html")
+                preview_path = os.path.join(BASE_DIR, "scratch", f"stripchat_weekly_{dk}_v{wvol}_preview.html")
                 os.makedirs(os.path.dirname(preview_path), exist_ok=True)
                 with open(preview_path, "w", encoding="utf-8") as f:
                     f.write(f"<html><head><meta charset='utf-8'><title>{html.escape(title)}</title></head><body>{html_content}</body></html>")
-                print(f"[DRY-RUN] {dk}: {len(items)}件 / {len(html_content):,}文字 -> {preview_path}")
+                print(f"[DRY-RUN] {dk} (第{wvol}週): {len(items)}件 / {len(html_content):,}文字 -> {preview_path}")
             return True
 
         published = {}
         for dk, items in div_items.items():
+            wvol = div_vols[dk]
             title, html_content, category, tags = self.generate_weekly_top100_html(
-                dk, items, week_vol=week_vol, sibling_links=None
+                dk, items, week_vol=wvol, sibling_links=existing_sib or None
             )
             res_xml = self.livedoor.post_article(title, html_content, categories=[category] + tags, publish=True)
             if not res_xml:
@@ -1634,6 +1668,7 @@ class StripchatCurationEngine:
                 continue
             article_url, article_id = self._parse_posted_entry(res_xml)
             published[dk] = {
+                "week_vol": wvol,
                 "title": title,
                 "url": article_url,
                 "article_id": article_id,
@@ -1642,20 +1677,20 @@ class StripchatCurationEngine:
                 "tags": tags,
                 "hero_img": next((it["avatar_img"] for it in items if it.get("avatar_img")), None),
             }
-            print(f"🎉 [WEEKLY TOP100] 投稿完了 ({dk}): {article_url}")
+            print(f"🎉 [WEEKLY TOP100] 投稿完了 ({dk} 第{wvol}週): {article_url}")
 
         if not published:
             return False
 
-        # 複数カテゴリー投稿時は全6カテゴリー相互ナビリンクを各記事へ反映する
+        # 複数カテゴリー同時投稿時は新規公開URL同士で全6カテゴリー相互ナビリンクを一括更新する
         if len(published) > 1:
-            sibling_links = {dk: info["url"] for dk, info in published.items()}
+            sibling_links = {**existing_sib, **{dk: info["url"] for dk, info in published.items()}}
             for dk, info in published.items():
                 aid = info.get("article_id")
                 if not aid:
                     continue
                 title, updated_html, category, tags = self.generate_weekly_top100_html(
-                    dk, div_items[dk], week_vol=week_vol, sibling_links=sibling_links
+                    dk, div_items[dk], week_vol=info["week_vol"], sibling_links=sibling_links
                 )
                 res_upd = self.livedoor.update_article(
                     aid, title, updated_html, categories=[category] + tags, publish=True
@@ -1663,11 +1698,12 @@ class StripchatCurationEngine:
                 print(f"🔗 [相互リンク更新] {dk} (ID={aid}): {'成功' if res_upd else '失敗'}")
 
         now_iso = datetime.datetime.now().isoformat(timespec="seconds")
-        history["current_weekly_vol"] = week_vol + 1
+        max_wvol = max(info["week_vol"] for info in published.values())
+        history["current_weekly_vol"] = max(int(history.get("current_weekly_vol", 1)), max_wvol + 1)
         history["last_weekly_top100_date"] = datetime.date.today().isoformat()
         for dk, info in published.items():
             history.setdefault("weekly_top100_articles", []).append({
-                "week_vol": week_vol,
+                "week_vol": info["week_vol"],
                 "division": dk,
                 "title": info["title"],
                 "url": info["url"],
@@ -1772,7 +1808,7 @@ if __name__ == "__main__":
         default="top",
         help="記事モード: top(人気キャスト5部門+カップル), top-rotate(部門別ローテ), asian(日中韓), weekly-top100(カテゴリー別週間TOP100×LiveCamRips検索)",
     )
-    ap.add_argument("--division", choices=["all", "as", "na", "sa", "eu", "af", "couples", "rotate"], default="all", help="top / weekly-top100 モード時の対象部門")
+    ap.add_argument("--division", choices=["all", "as", "na", "sa", "eu", "af", "couples", "rotate", "weekday"], default="all", help="top / weekly-top100 モード時の対象部門（weekdayは月〜土で1日1部門）")
     ap.add_argument("--refresh-published", action="store_true", help="公開済みまとめ記事を最新データ版HTMLで上書き更新")
     ap.add_argument("--dry-run", action="store_true", help="投稿せず scratch/ にプレビューHTMLを保存")
     ap.add_argument("--blog-id", type=str, default=DEFAULT_BLOG_ID, help="対象ブログID")
