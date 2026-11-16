@@ -1,5 +1,5 @@
 {
-  "current_vol": 3,
+  "current_vol": 4,
   "posted_usernames": [
     "MIZUKI88888",
     "momo-anqi",
@@ -24,10 +24,23 @@
     "roouse",
     "BallerinaCappuccino_",
     "Lina_lolo",
-    "koalaClub"
+    "koalaClub",
+    "sayaka_xo",
+    "-XunMengLong-",
+    "xKoreanGirl",
+    "_hiyor_",
+    "kitty_baby77",
+    "korean_kitti",
+    "R-bonbon",
+    "Ivy_Trixx",
+    "Sofy_Bradd",
+    "K_ress06",
+    "missytrig",
+    "SophieVJ"
   ],
   "skipped_usernames": {
-    "LinaFlowerss": "韓国語・韓国籍の根拠不足 (langs=['en', 'de', 'fr'])"
+    "LinaFlowerss": "韓国語・韓国籍の根拠不足 (langs=['en', 'de', 'fr'])",
+    "korean_minn": "有効な公開画像が取得・アップロードできませんでした"
   },
   "posted_articles": [
     {
@@ -95,12 +108,46 @@
         "koalaClub"
       ],
       "posted_at": "2026-11-15T16:54:58"
+    },
+    {
+      "mode": "asian",
+      "division": "asian",
+      "vol": 3,
+      "title": "【アジア美女図鑑 Vol.3】世界のライブ配信で話題の日・中・韓美女6選まとめ｜プロフィール＆アーカイブ徹底照合",
+      "url": "https://bijozukan.doorblog.jp/archives/18017067.html",
+      "count": 6,
+      "usernames": [
+        "sayaka_xo",
+        "-XunMengLong-",
+        "xKoreanGirl",
+        "_hiyor_",
+        "kitty_baby77",
+        "korean_kitti"
+      ],
+      "posted_at": "2026-11-16T20:06:42"
+    },
+    {
+      "mode": "top",
+      "division": "all",
+      "vol": 3,
+      "title": "【世界人気キャスト図鑑 Vol.3】女性5部門（アジア・北米・南米・欧州・アフリカ）＆カップル上位6組まとめ｜プロフィール＆アーカイブ照合",
+      "url": "https://bijozukan.doorblog.jp/archives/18017074.html",
+      "count": 6,
+      "usernames": [
+        "R-bonbon",
+        "Ivy_Trixx",
+        "Sofy_Bradd",
+        "K_ress06",
+        "missytrig",
+        "SophieVJ"
+      ],
+      "posted_at": "2026-11-16T20:07:53"
     }
   ],
-  "current_top_vol": 3,
+  "current_top_vol": 4,
   "top_division_idx": 0,
-  "current_weekly_vol": 2,
-  "last_weekly_top100_date": "2026-11-15",
+  "current_weekly_vol": 3,
+  "last_weekly_top100_date": "2026-11-16",
   "weekly_top100_articles": [
     {
       "week_vol": 1,
@@ -149,6 +196,14 @@
       "url": "https://bijozukan.doorblog.jp/archives/18000277.html",
       "count": 20,
       "posted_at": "2026-11-15T06:58:04"
+    },
+    {
+      "week_vol": 2,
+      "division": "as",
+      "title": "【週間ランキングTOP100】Stripchat 人気キャスト「🌏 女性：アジア&太平洋部門」全100名一覧＆LiveCamRipsモデル検索リンク集【第2週 / 2026年11月】",
+      "url": "https://bijozukan.doorblog.jp/archives/18017076.html",
+      "count": 100,
+      "posted_at": "2026-11-16T20:08:10"
     }
   ]
 }
