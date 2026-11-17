@@ -1,5 +1,5 @@
 {
-  "current_vol": 4,
+  "current_vol": 5,
   "posted_usernames": [
     "MIZUKI88888",
     "momo-anqi",
@@ -36,7 +36,19 @@
     "Sofy_Bradd",
     "K_ress06",
     "missytrig",
-    "SophieVJ"
+    "SophieVJ",
+    "Hiiichan88",
+    "musi8868",
+    "2hyun__KOREA",
+    "Miu-Gcup",
+    "Coco00o",
+    "KimiikoChu",
+    "hana-08787-",
+    "Fiona_Kent_",
+    "jenn_fit",
+    "Lilou-",
+    "kimita96",
+    "Asian_Asami"
   ],
   "skipped_usernames": {
     "LinaFlowerss": "韓国語・韓国籍の根拠不足 (langs=['en', 'de', 'fr'])",
@@ -142,12 +154,46 @@
         "SophieVJ"
       ],
       "posted_at": "2026-11-16T20:07:53"
+    },
+    {
+      "mode": "asian",
+      "division": "asian",
+      "vol": 4,
+      "title": "【アジア美女図鑑 Vol.4】世界のライブ配信で話題の日・中・韓美女6選まとめ｜プロフィール＆アーカイブ徹底照合",
+      "url": "https://bijozukan.doorblog.jp/archives/18025543.html",
+      "count": 6,
+      "usernames": [
+        "Hiiichan88",
+        "musi8868",
+        "2hyun__KOREA",
+        "Miu-Gcup",
+        "Coco00o",
+        "KimiikoChu"
+      ],
+      "posted_at": "2026-11-17T19:01:57"
+    },
+    {
+      "mode": "top",
+      "division": "all",
+      "vol": 4,
+      "title": "【世界人気キャスト図鑑 Vol.4】女性5部門（アジア・北米・南米・欧州・アフリカ）＆カップル上位6組まとめ｜プロフィール＆アーカイブ照合",
+      "url": "https://bijozukan.doorblog.jp/archives/18025573.html",
+      "count": 6,
+      "usernames": [
+        "hana-08787-",
+        "Fiona_Kent_",
+        "jenn_fit",
+        "Lilou-",
+        "kimita96",
+        "Asian_Asami"
+      ],
+      "posted_at": "2026-11-17T19:03:15"
     }
   ],
-  "current_top_vol": 4,
+  "current_top_vol": 5,
   "top_division_idx": 0,
   "current_weekly_vol": 3,
-  "last_weekly_top100_date": "2026-11-16",
+  "last_weekly_top100_date": "2026-11-17",
   "weekly_top100_articles": [
     {
       "week_vol": 1,
@@ -204,6 +250,14 @@
       "url": "https://bijozukan.doorblog.jp/archives/18017076.html",
       "count": 100,
       "posted_at": "2026-11-16T20:08:10"
+    },
+    {
+      "week_vol": 2,
+      "division": "na",
+      "title": "【週間ランキングTOP100】Stripchat 人気キャスト「🗽 女性：北アメリカ部門」全100名一覧＆LiveCamRipsモデル検索リンク集【第2週 / 2026年11月】",
+      "url": "https://bijozukan.doorblog.jp/archives/18025582.html",
+      "count": 100,
+      "posted_at": "2026-11-17T19:03:35"
     }
   ]
 }
