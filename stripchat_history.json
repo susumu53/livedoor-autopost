@@ -1,5 +1,5 @@
 {
-  "current_vol": 6,
+  "current_vol": 7,
   "posted_usernames": [
     "MIZUKI88888",
     "momo-anqi",
@@ -60,12 +60,27 @@
     "Maddy_Rouse_",
     "KatherineMaginn",
     "queen-chamss",
-    "TUNDEROSE1"
+    "TUNDEROSE1",
+    "CocoaMilk18",
+    "BoxedGyre-",
+    "koreanass",
+    "nami_chan",
+    "ssyyds8866",
+    "korean_ivy",
+    "AYW-21",
+    "zoeycaldwellxo",
+    "zui_lu",
+    "NyssaSky",
+    "katt008",
+    "lean_lie8"
   ],
   "skipped_usernames": {
     "LinaFlowerss": "韓国語・韓国籍の根拠不足 (langs=['en', 'de', 'fr'])",
     "korean_minn": "有効な公開画像が取得・アップロードできませんでした",
-    "Dian-Sex": "ユーザー名に安全フィルタ該当語句を含むため除外"
+    "Dian-Sex": "ユーザー名に安全フィルタ該当語句を含むため除外",
+    "SOUMEN_jp": "有効な公開画像が取得・アップロードできませんでした",
+    "korean_flower": "韓国語・韓国籍の根拠不足 (langs=['en', 'de', 'es', 'fr', 'it'])",
+    "laylavaughtt": "アカウント削除・非公開"
   },
   "posted_articles": [
     {
@@ -235,12 +250,46 @@
         "TUNDEROSE1"
       ],
       "posted_at": "2026-11-18T18:47:28"
+    },
+    {
+      "mode": "asian",
+      "division": "asian",
+      "vol": 6,
+      "title": "【アジア美女図鑑 Vol.6】世界のライブ配信で話題の日・中・韓美女6選まとめ｜プロフィール＆アーカイブ徹底照合",
+      "url": "https://bijozukan.doorblog.jp/archives/18044950.html",
+      "count": 6,
+      "usernames": [
+        "CocoaMilk18",
+        "BoxedGyre-",
+        "koreanass",
+        "nami_chan",
+        "ssyyds8866",
+        "korean_ivy"
+      ],
+      "posted_at": "2026-11-19T18:57:11"
+    },
+    {
+      "mode": "top",
+      "division": "all",
+      "vol": 6,
+      "title": "【世界人気キャスト図鑑 Vol.6】女性5部門（アジア・北米・南米・欧州・アフリカ）＆カップル上位6組まとめ｜プロフィール＆アーカイブ照合",
+      "url": "https://bijozukan.doorblog.jp/archives/18044960.html",
+      "count": 6,
+      "usernames": [
+        "AYW-21",
+        "zoeycaldwellxo",
+        "zui_lu",
+        "NyssaSky",
+        "katt008",
+        "lean_lie8"
+      ],
+      "posted_at": "2026-11-19T18:58:29"
     }
   ],
-  "current_top_vol": 6,
+  "current_top_vol": 7,
   "top_division_idx": 0,
   "current_weekly_vol": 3,
-  "last_weekly_top100_date": "2026-11-18",
+  "last_weekly_top100_date": "2026-11-19",
   "weekly_top100_articles": [
     {
       "week_vol": 1,
@@ -313,6 +362,14 @@
       "url": "https://bijozukan.doorblog.jp/archives/18035011.html",
       "count": 100,
       "posted_at": "2026-11-18T18:47:47"
+    },
+    {
+      "week_vol": 2,
+      "division": "eu",
+      "title": "【週間ランキングTOP100】Stripchat 人気キャスト「🏰 女性：ヨーロッパ部門」全100名一覧＆LiveCamRipsモデル検索リンク集【第2週 / 2026年11月】",
+      "url": "https://bijozukan.doorblog.jp/archives/18044961.html",
+      "count": 100,
+      "posted_at": "2026-11-19T18:58:48"
     }
   ]
 }
