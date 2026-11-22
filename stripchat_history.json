@@ -1,5 +1,5 @@
 {
-  "current_vol": 9,
+  "current_vol": 10,
   "posted_usernames": [
     "MIZUKI88888",
     "momo-anqi",
@@ -96,7 +96,19 @@
     "seraphine23",
     "AlyssaFoxx_",
     "mari_layali",
-    "-victory-fox"
+    "-victory-fox",
+    "miniminimo_o",
+    "Angel-Bei-bei",
+    "Korean_cute",
+    "yura_yukino",
+    "Yuki_Juicy",
+    "KoreanMaya",
+    "MIYU_CHANNEL",
+    "mismialove",
+    "alicee16",
+    "mc-Olivia",
+    "dora-27",
+    "Nicoleevien"
   ],
   "skipped_usernames": {
     "LinaFlowerss": "韓国語・韓国籍の根拠不足 (langs=['en', 'de', 'fr'])",
@@ -107,7 +119,8 @@
     "laylavaughtt": "アカウント削除・非公開",
     "korean_ramen_7": "韓国語・韓国籍の根拠不足 (langs=['en', 'de'])",
     "KoreanCat": "アジア圏パフォーマーではない (country=, hair=)",
-    "koreanicci_01": "韓国語・韓国籍の根拠不足 (langs=['en', 'de'])"
+    "koreanicci_01": "韓国語・韓国籍の根拠不足 (langs=['en', 'de'])",
+    "korean_dreams": "韓国語・韓国籍の根拠不足 (langs=['en', 'de', 'es', 'fr', 'ja'])"
   },
   "posted_articles": [
     {
@@ -379,9 +392,43 @@
         "-victory-fox"
       ],
       "posted_at": "2026-11-21T17:15:11"
+    },
+    {
+      "mode": "asian",
+      "division": "asian",
+      "vol": 9,
+      "title": "【アジア美女図鑑 Vol.9】世界のライブ配信で話題の日・中・韓美女6選まとめ｜プロフィール＆アーカイブ徹底照合",
+      "url": "https://bijozukan.doorblog.jp/archives/18079717.html",
+      "count": 6,
+      "usernames": [
+        "miniminimo_o",
+        "Angel-Bei-bei",
+        "Korean_cute",
+        "yura_yukino",
+        "Yuki_Juicy",
+        "KoreanMaya"
+      ],
+      "posted_at": "2026-11-22T17:42:58"
+    },
+    {
+      "mode": "top",
+      "division": "all",
+      "vol": 9,
+      "title": "【世界人気キャスト図鑑 Vol.9】女性5部門（アジア・北米・南米・欧州・アフリカ）＆カップル上位6組まとめ｜プロフィール＆アーカイブ照合",
+      "url": "https://bijozukan.doorblog.jp/archives/18079718.html",
+      "count": 6,
+      "usernames": [
+        "MIYU_CHANNEL",
+        "mismialove",
+        "alicee16",
+        "mc-Olivia",
+        "dora-27",
+        "Nicoleevien"
+      ],
+      "posted_at": "2026-11-22T17:44:06"
     }
   ],
-  "current_top_vol": 9,
+  "current_top_vol": 10,
   "top_division_idx": 0,
   "current_weekly_vol": 3,
   "last_weekly_top100_date": "2026-11-21",
